@@ -8,7 +8,7 @@ module Spree
         links = []
         @order_events.sort.each do |event|
           next unless @order.send("can_#{event}?")
-          translated_event = t(event, scope: [:spree, :admin, :order, :events])
+          translated_event = t(event, scope: :spree)
           links << button_to(
             translated_event,
             [event.to_sym, :admin, @order],
