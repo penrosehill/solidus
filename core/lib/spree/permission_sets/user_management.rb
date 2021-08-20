@@ -19,6 +19,8 @@ module Spree
         can :manage, Spree::StoreCredit
         can :manage, :api_key
         can :read, Spree::Role
+
+        can :manage, Spree::Wallet
       end
     end
   end
