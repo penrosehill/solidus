@@ -338,7 +338,7 @@ describe Spree::Admin::UsersController, type: :controller do
       end
     end
 
-    context "when the user can manage only some stock locations" do
+    context "when the user can manage only some roles" do
       stub_authorization! do |_user|
         can :manage, Spree.user_class
         can :manage, Spree::Role
@@ -423,6 +423,13 @@ describe Spree::Admin::UsersController, type: :controller do
         put :update, params: { id: user.id, user: { stock_location_ids: [location2.id] } }
         expect(user.reload.stock_locations).to eq([location2])
       end
+
+      it "can clear stock locations" do
+        user.stock_locations << Spree::StockLocation.create(name: "my_location")
+        expect {
+          put :update, params: { id: user.id, user: { name: "Bob Bloggs", stock_location_ids: [""] } }
+        }.to change { user.reload.stock_locations.to_a }.to([])
+      end
     end
 
     context "when the user cannot manage stock locations" do
@@ -452,6 +459,35 @@ describe Spree::Admin::UsersController, type: :controller do
         location2 = Spree::StockLocation.create(name: "not_accessible_location")
         put :update, params: { id: user.id, user: { stock_location_ids: [location1.id, location2.id] } }
         expect(user.reload.stock_locations).to eq([location1])
+      end
+    end
+  end
+
+  describe "#destroy" do
+    stub_authorization! do |_user|
+      can :manage, Spree.user_class
+    end
+
+    subject do
+      delete :destroy, params: { id: user.id }
+      response
+    end
+
+    context "with user having no orders" do
+      let(:user) { create(:user) }
+
+      it "can be destroyed" do
+        is_expected.to be_redirect
+        expect(flash[:success]).to eq("User has been successfully removed!")
+      end
+    end
+
+    context "with user having orders" do
+      let(:user) { create(:user, :with_orders) }
+
+      it "cannot be destroyed" do
+        is_expected.to be_forbidden
+        expect(subject.body).to eq I18n.t("spree.error_user_destroy_with_orders")
       end
     end
   end
