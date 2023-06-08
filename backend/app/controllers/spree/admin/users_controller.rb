@@ -126,7 +126,7 @@ module Spree
 
         @search = super.ransack(params[:q])
         @collection = @search.result.includes(:spree_roles)
-        @collection = @collection.includes(:spree_orders)
+        @collection = @collection.includes(:orders)
         @collection = @collection.page(params[:page]).per(Spree::Config[:admin_products_per_page])
       end
 
@@ -155,7 +155,7 @@ module Spree
       # handling raise from Spree::Admin::ResourceController#destroy
       def user_destroy_with_orders_error
         invoke_callbacks(:destroy, :fails)
-        render status: :forbidden, text: t('spree.error_user_destroy_with_orders')
+        render status: :forbidden, plain: t("spree.error_user_destroy_with_orders")
       end
 
       def sign_in_if_change_own_password
