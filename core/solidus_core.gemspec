@@ -39,8 +39,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'kaminari-activerecord', '~> 1.1'
   s.add_dependency 'mini_magick', '~> 4.10'
   s.add_dependency 'monetize', '~> 1.8'
-  s.add_dependency 'kt-paperclip', ['>= 4.4.0', '< 7']
-  s.add_dependency 'paranoia', '~> 2.4'
+  s.add_dependency 'kt-paperclip', '~> 6.3'
   s.add_dependency 'psych', ['>= 3.1.0', '< 5.0']
   s.add_dependency 'ransack', '~> 2.0'
   s.add_dependency 'state_machines-activerecord', '~> 0.6'
@@ -57,9 +56,7 @@ $ bin/rails g solidus:install
 If you are updating Solidus from an older version, please run
 the following commands to complete the update:
 
-$ bin/rails railties:install:migrations
-$ bin/rails db:migrate
-$ bin/rails solidus:upgrade:two_point_eleven
+$ bin/rails solidus:upgrade
 
 Please report any issues at:
 - https://github.com/solidusio/solidus/issues

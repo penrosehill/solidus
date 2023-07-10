@@ -13,7 +13,6 @@ RSpec.describe Spree::Refund, type: :model do
   let(:refund_reason) { create(:refund_reason) }
 
   let(:transaction_id) { nil }
-  let(:perform_after_create) { false }
 
   let(:refund) do
     create(
@@ -21,8 +20,7 @@ RSpec.describe Spree::Refund, type: :model do
       payment: payment,
       amount: amount,
       reason: refund_reason,
-      transaction_id: transaction_id,
-      perform_after_create: perform_after_create
+      transaction_id: transaction_id
     )
   end
 
@@ -42,31 +40,18 @@ RSpec.describe Spree::Refund, type: :model do
       expect(subject.transaction_id).to be_nil
     end
 
-    context "passing perform_after_create" do
-      context "when it is false" do
-        let(:perform_after_create) { false }
+    context "with a european price format" do
+      let(:amount) { "100,00" }
+      let(:payment_amount) { 200.0 }
 
-        it "does not print deprecation warnings, does not run perform! and reset the perform_after_create value" do
-          expect(Spree::Deprecation).not_to receive(:warn)
-
-          expect { subject }.not_to change(Spree::LogEntry, :count)
-          expect(subject.transaction_id).to be_nil
-
-          expect(refund.perform_after_create).to be_nil
+      before do
+        expect(I18n).to receive(:t).with(:'number.currency.format.separator') do
+          ","
         end
       end
 
-      context "when it is true" do
-        let(:perform_after_create) { true }
-
-        it "prints a deprecation warning, runs perform! and reset the perform_after_create value" do
-          expect(Spree::Deprecation).to receive(:warn)
-
-          expect { subject }.to change(Spree::LogEntry, :count)
-          expect(subject.transaction_id).not_to be_nil
-
-          expect(refund.perform_after_create).to be_nil
-        end
+      it "creates a refund record" do
+        expect { subject }.to change { Spree::Refund.count }.by(1)
       end
     end
 
@@ -89,90 +74,26 @@ RSpec.describe Spree::Refund, type: :model do
   describe "#perform!" do
     subject { refund.perform! }
 
-    context "with perform_after_create: true" do
-      let(:perform_after_create) { true }
+    it "sets #perform_response with the gateway response from the payment provider" do
+      expect { subject }.to change { refund.perform_response }.from(nil)
 
-      it "deprecates usage of the instance variable @response" do
-        expect(Spree::Deprecation).to receive(:warn).twice
-
-        response = refund.instance_variable_get("@response")
-        response.to_s
-      end
-
-      it "sets #perform_response with the gateway response from the payment provider" do
-        expect(Spree::Deprecation).to receive(:warn)
-
-        expect(refund.perform_response).to be_a(ActiveMerchant::Billing::Response)
-        expect(refund.perform_response.message).to eq(Spree::PaymentMethod::BogusCreditCard::SUCCESS_MESSAGE)
-      end
-
-      it "does nothing, perform! already happened after create", :aggregate_failures do
-        expect(Spree::Deprecation).to receive(:warn)
-        refund
-        expect(refund.transaction_id).not_to be_nil
-
-        expect { subject }.not_to change(Spree::LogEntry, :count)
-      end
+      expect(refund.perform_response).to be_a(ActiveMerchant::Billing::Response)
+      expect(refund.perform_response.message).to eq(Spree::PaymentMethod::BogusCreditCard::SUCCESS_MESSAGE)
     end
 
-    context "with perform_after_create: false" do
-      let(:perform_after_create) { false }
-
-      it "runs perform! without deprecation warnings" do
-        expect(Spree::Deprecation).not_to receive(:warn)
-        refund
-        expect(refund.transaction_id).to be_nil
-
-        expect { subject }.to change(Spree::LogEntry, :count)
-      end
+    it "sets a transaction_id" do
+      expect { subject }.to change { refund.transaction_id }.from(nil)
     end
 
-    context "without perform_after_create" do
-      let(:perform_after_create) { nil }
-
-      it "does nothing, perform! already happened after create" do
-        expect(Spree::Deprecation).to receive(:warn)
-        refund
-        expect(refund.transaction_id).not_to be_nil
-
-        expect { subject }.not_to change(Spree::LogEntry, :count)
-      end
-
-      context "when the refund record is not persisted yet" do
-        context "when refunding a payment made with store credits" do
-          context "when the preference `credit_to_new_allocation` is true" do
-            before { stub_spree_preferences(credit_to_new_allocation: true) }
-
-            let(:credit) { create(:store_credit, amount: 10) }
-            let(:payment) { create(:payment, payment_method: create(:store_credit_payment_method), source: credit, amount: 8) }
-            let(:reason) { create(:refund_reason) }
-            let(:refund) { described_class.new(payment: payment, amount: 5, reason: reason) }
-
-            let!(:credit_event) do
-              create(
-                :store_credit_event,
-                store_credit: credit,
-                amount: payment.amount,
-                action: Spree::StoreCredit::CAPTURE_ACTION,
-                amount_remaining: credit.amount - payment.amount,
-                authorization_code: payment.transaction_id
-              )
-            end
-
-            it "creates a new store credit record for the given amount" do
-              expect { refund.perform! }.to change { Spree::StoreCredit.count }.by(1)
-            end
-          end
-        end
-      end
+    it "adds a Spree::LogEntry" do
+      expect { subject }.to change(Spree::LogEntry, :count)
     end
 
     context "when transaction_id exists" do
       let(:transaction_id) { "12kfjas0" }
 
       it "maintains the transaction id" do
-        subject
-        expect(refund.reload.transaction_id).to eq transaction_id
+        expect { subject }.not_to change { refund.transaction_id }
       end
 
       it "does not attempt to process a transaction" do
@@ -237,18 +158,6 @@ RSpec.describe Spree::Refund, type: :model do
         context 'without performing after create' do
           it 'raises a GatewayError' do
             expect { subject }.to raise_error(Spree::Core::GatewayError, failure_message)
-          end
-        end
-
-        context 'calling perform! with after_create' do
-          let(:perform_after_create) { true }
-
-          it 'raises a GatewayError and does not create a refund' do
-            expect(Spree::Deprecation).to receive(:warn)
-
-            expect do
-              expect { subject }.to raise_error(Spree::Core::GatewayError, failure_message)
-            end.not_to change(Spree::Refund, :count)
           end
         end
       end

@@ -59,14 +59,6 @@ module Spree
         expect(children.first.key?('taxons')).to be true
       end
 
-      it "gets the jstree-friendly version of a taxonomy" do
-        expect(Spree::Deprecation).to(receive(:warn))
-        get spree.jstree_api_taxonomy_path(taxonomy.id)
-        expect(json_response["data"]).to eq(taxonomy.root.name)
-        expect(json_response["attr"]).to eq({ "id" => taxonomy.root.id, "name" => taxonomy.root.name })
-        expect(json_response["state"]).to eq("closed")
-      end
-
       it "can learn how to create a new taxonomy" do
         get spree.new_api_taxonomy_path(taxonomy.id)
         expect(json_response["attributes"]).to eq(attributes.map(&:to_s))
@@ -79,12 +71,12 @@ module Spree
         assert_unauthorized!
       end
 
-      it "cannot update a taxonomy" do
+      it "cannot update a taxonomy if not an admin" do
         put spree.api_taxonomy_path(taxonomy.id), params: { taxonomy: { name: "I hacked your store!" } }
         assert_unauthorized!
       end
 
-      it "cannot delete a taxonomy" do
+      it "cannot delete a taxonomy if not an admin" do
         delete spree.api_taxonomy_path(taxonomy.id)
         assert_unauthorized!
       end
@@ -93,7 +85,7 @@ module Spree
     context "as an admin" do
       sign_in_as_admin!
 
-      it "can create" do
+      it "can create a taxonomy" do
         post spree.api_taxonomies_path, params: { taxonomy: { name: "Colors" } }
         expect(json_response).to have_attributes(attributes)
         expect(response.status).to eq(201)
@@ -103,6 +95,13 @@ module Spree
         post spree.api_taxonomies_path, params: { taxonomy: {} }
         expect(response.status).to eq(422)
         expect(json_response["error"]).to eq("Invalid resource. Please fix errors and try again.")
+      end
+
+      it "can update a taxonomy" do
+        put spree.api_taxonomy_path(taxonomy), params: { taxonomy: { name: "Colours" } }
+        expect(json_response).to have_attributes(attributes)
+        expect(response.status).to eq(200)
+        expect(taxonomy.reload.name).to eql 'Colours'
       end
 
       it "can destroy" do

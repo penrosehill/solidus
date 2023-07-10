@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'active_support/all'
 require 'spec_helper'
 require 'spree/event'
 
@@ -15,24 +16,6 @@ RSpec.describe Spree::Event::Subscriber do
 
     def other_event(event)
       # not registered via event_action
-    end
-  end
-
-  describe '::subscribe!' do
-    it 'is deprecated in favor of ::activate' do
-      allow(M).to receive(:activate)
-      expect(Spree::Deprecation).to receive(:warn)
-
-      M.subscribe!
-    end
-  end
-
-  describe '::unsubscribe!' do
-    it 'is deprecated in favor of ::unsubscribe' do
-      allow(M).to receive(:deactivate)
-      expect(Spree::Deprecation).to receive(:warn)
-
-      M.unsubscribe!
     end
   end
 

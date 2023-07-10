@@ -3,22 +3,7 @@
 require 'rails_helper'
 
 RSpec.describe Spree::Address, type: :model do
-  context "aliased attributes" do
-    before do
-      allow(Spree::Deprecation).to receive(:warn).and_call_original
-      allow(Spree::Deprecation).to receive(:warn).with(/firstname|lastname/, any_args)
-    end
-
-    let(:address) { Spree::Address.new firstname: 'Ryan', lastname: 'Bigg' }
-
-    it " first_name" do
-      expect(address.first_name).to eq("Ryan")
-    end
-
-    it "last_name" do
-      expect(address.last_name).to eq("Bigg")
-    end
-  end
+  subject { Spree::Address }
 
   context "validation" do
     let(:country) { create :country, states_required: true }
@@ -27,10 +12,6 @@ RSpec.describe Spree::Address, type: :model do
 
     context 'state validation' do
       let(:state_validator) { instance_spy(Spree::Address.state_validator_class) }
-
-      before do
-        stub_spree_preferences(use_legacy_address_state_validator: false)
-      end
 
       it "calls the state validator" do
         allow(Spree::Address.state_validator_class).
@@ -49,30 +30,6 @@ RSpec.describe Spree::Address, type: :model do
         address.state_name = nil
         expect(address.valid?).to eq(false)
         expect(address.errors['state']).to eq(["can't be blank"])
-      end
-
-      context 'legacy state validator' do
-        before do
-          stub_spree_preferences(use_legacy_address_state_validator: true)
-        end
-
-        it 'doesnt show deprecation warnings when calling #valid?' do
-          expect(Spree::Deprecation).to_not receive(:warn).
-            with(/^Spree::Address#state_validate private method has been deprecated/, any_args)
-          expect(Spree::Deprecation).to_not receive(:warn).
-            with(/^Spree::Address#validate_state_matches_country private method has been deprecated/, any_args)
-          address.valid?
-        end
-
-        it 'shows the deprecation warnings when calling validation methods directly' do
-          expect(Spree::Deprecation).to receive(:warn).
-            with(/^Spree::Address#state_validate private method has been deprecated/, any_args)
-          address.send(:state_validate)
-
-          expect(Spree::Deprecation).to receive(:warn).
-            with(/^Spree::Address#validate_state_matches_country private method has been deprecated/, any_args)
-          address.send(:validate_state_matches_country)
-        end
       end
     end
 
@@ -223,7 +180,7 @@ RSpec.describe Spree::Address, type: :model do
 
   context ".immutable_merge" do
     RSpec::Matchers.define :be_address_equivalent_attributes do |expected|
-      fields_of_interest = [:firstname, :lastname, :company, :address1, :address2, :city, :zipcode, :phone, :alternative_phone]
+      fields_of_interest = [:name, :company, :address1, :address2, :city, :zipcode, :phone, :alternative_phone]
       match do |actual|
         expected_attrs = expected.symbolize_keys.slice(*fields_of_interest)
         actual_attrs = actual.symbolize_keys.slice(*fields_of_interest)
@@ -318,6 +275,7 @@ RSpec.describe Spree::Address, type: :model do
         expect(subject).to eq('address1' => '1234 way', 'address2' => 'apt 2')
       end
     end
+<<<<<<< HEAD
 
     context 'with aliased attributes' do
       let(:base_attributes) { { 'first_name' => 'Jordan' } }
@@ -333,6 +291,8 @@ RSpec.describe Spree::Address, type: :model do
         expect(merge_attributes).to eq('last_name' => 'Brough')
       end
     end
+=======
+>>>>>>> upstream/v3.0
   end
 
   describe '.taxation_attributes' do
@@ -374,6 +334,7 @@ RSpec.describe Spree::Address, type: :model do
   end
 
   context '#name' do
+<<<<<<< HEAD
     shared_examples 'name attribute' do
       it 'concatenates firstname and lastname' do
         address = described_class.new(firstname: 'Michael J.', lastname: 'Jackson')
@@ -417,6 +378,13 @@ RSpec.describe Spree::Address, type: :model do
       end
 
       it_behaves_like 'name attribute'
+=======
+    it 'is included in json representation' do
+      address = Spree::Address.new(name: 'Jane Von Doe')
+
+      expect(address.as_json).to include('name' => 'Jane Von Doe')
+      expect(address.as_json.keys).not_to include('firstname', 'lastname')
+>>>>>>> upstream/v3.0
     end
   end
 
@@ -444,6 +412,7 @@ RSpec.describe Spree::Address, type: :model do
 
     it { is_expected.to be_require_phone }
   end
+<<<<<<< HEAD
 
   context 'deprecations' do
     let(:address) { described_class.new }
@@ -513,4 +482,6 @@ RSpec.describe Spree::Address, type: :model do
       end
     end
   end
+=======
+>>>>>>> upstream/v3.0
 end

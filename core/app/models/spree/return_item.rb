@@ -81,21 +81,12 @@ module Spree
     include ::Spree::Config.state_machines.return_item_acceptance
 
     extend DisplayMoney
-    money_methods :pre_tax_amount, :amount, :total, :total_excluding_vat
-    deprecate display_pre_tax_amount: :display_total_excluding_vat, deprecator: Spree::Deprecation
+    money_methods :amount, :total, :total_excluding_vat
 
     # @return [Boolean] true when this retur item is in a complete reception
     #   state
     def reception_completed?
       COMPLETED_RECEPTION_STATUSES.map(&:to_s).include?(reception_status.to_s)
-    end
-
-    def skip_customer_return_processing=(value)
-      @skip_customer_return_processing = value
-      Deprecation.warn \
-        'From Solidus v2.11 onwards, #skip_customer_return_processing does ' \
-        'nothing, and #process_inventory_unit! will restore calling ' \
-        'customer_return#process_return!', caller(1)
     end
 
     # @param inventory_unit [Spree::InventoryUnit] the inventory for which we
@@ -134,8 +125,6 @@ module Spree
     def total_excluding_vat
       amount - included_tax_total
     end
-    alias pre_tax_amount total_excluding_vat
-    deprecate pre_tax_amount: :total_excluding_vat, deprecator: Spree::Deprecation
 
     # @note This uses the exchange_variant_engine configured on the class.
     # @param stock_locations [Array<Spree::StockLocation>] the stock locations to check
@@ -206,13 +195,6 @@ module Spree
         customer_return.stock_location.restock(inventory_unit.variant, 1, customer_return)
       end
 
-      unless @skip_customer_return_processing.nil?
-        Deprecation.warn \
-          'From Solidus v2.11 onwards, #skip_customer_return_processing does ' \
-          'nothing, and #process_inventory_unit! will restore calling ' \
-          'customer_return#process_return!'
-      end
-
       customer_return&.process_return!
     end
 
@@ -272,10 +254,9 @@ module Spree
       }).where.not(id: id).first
 
       if other_return_item && (new_record? || COMPLETED_RECEPTION_STATUSES.include?(reception_status.to_sym))
-        errors.add(:inventory_unit, :other_completed_return_item_exists, {
+        errors.add(:inventory_unit, :other_completed_return_item_exists,
           inventory_unit_id: inventory_unit_id,
-          return_item_id: other_return_item.id
-        })
+          return_item_id: other_return_item.id)
       end
     end
 
