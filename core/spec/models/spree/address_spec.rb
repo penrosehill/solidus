@@ -66,60 +66,6 @@ RSpec.describe Spree::Address, type: :model do
     end
   end
 
-  context "when creating a record" do
-    context "when the `name` field is not explicitly set" do
-      subject { build :address, name: nil, firstname: 'John', lastname: 'Doe' }
-
-      it "sets `name` from `firstname` and `lastname`" do
-        expect { subject.save }.to change { subject.read_attribute(:name) }.from(nil).to('John Doe')
-      end
-    end
-  end
-
-  context "when updating a record" do
-    let(:address) { create(:address, firstname: "John", lastname: "Doe") }
-
-    context "if use_combined_first_and_last_name_in_address is set to false (default)" do
-      before do
-        allow(Spree::Config).to receive(:use_combined_first_and_last_name_in_address) { false }
-      end
-
-      context "and the `name` attribute is not in changeset" do
-        it "sets `name` from `firstname` and `lastname`" do
-          new_address = described_class.immutable_merge(address, firstname: "Jane", lastname: "Fonda")
-          expect(new_address.read_attribute(:name)).to eq("Jane Fonda")
-        end
-      end
-
-      context "and the `name` attribute is in changeset" do
-        it "does not update name" do
-          new_address = described_class.immutable_merge(address, name: "Jane Fonda")
-          expect(new_address.read_attribute(:name)).to eq("John Von Doe")
-        end
-      end
-    end
-
-    context "if use_combined_first_and_last_name_in_address is set to true" do
-      before do
-        allow(Spree::Config).to receive(:use_combined_first_and_last_name_in_address) { true }
-      end
-
-      context "and the `name` attribute is not in changeset" do
-        it "keeps old name" do
-          new_address = described_class.immutable_merge(address, firstname: "Jane", lastname: "Fonda")
-          expect(new_address.read_attribute(:name)).to eq("John Von Doe")
-        end
-      end
-
-      context "and the `name` attribute is in changeset" do
-        it "updates name" do
-          new_address = described_class.immutable_merge(address, name: "Jane Fonda")
-          expect(new_address.read_attribute(:name)).to eq("Jane Fonda")
-        end
-      end
-    end
-  end
-
   context ".build_default" do
     context "no user given" do
       let!(:default_country) { create(:country) }
@@ -173,7 +119,7 @@ RSpec.describe Spree::Address, type: :model do
       let(:country) { create(:country, iso: 'ZW') }
 
       it 'uses the setters' do
-        expect(described_class.factory(address_attributes).country_id).to eq(country.id)
+        expect(subject.factory(address_attributes).country_id).to eq(country.id)
       end
     end
   end
@@ -275,24 +221,6 @@ RSpec.describe Spree::Address, type: :model do
         expect(subject).to eq('address1' => '1234 way', 'address2' => 'apt 2')
       end
     end
-<<<<<<< HEAD
-
-    context 'with aliased attributes' do
-      let(:base_attributes) { { 'first_name' => 'Jordan' } }
-      let(:merge_attributes) { { 'last_name' => 'Brough' } }
-
-      it 'renames them to the normalized value' do
-        expect(subject).to eq('firstname' => 'Jordan', 'lastname' => 'Brough', 'name' => 'Jordan Brough')
-      end
-
-      it 'does not modify the original hashes' do
-        subject
-        expect(base_attributes).to eq('first_name' => 'Jordan')
-        expect(merge_attributes).to eq('last_name' => 'Brough')
-      end
-    end
-=======
->>>>>>> upstream/v3.0
   end
 
   describe '.taxation_attributes' do
@@ -334,57 +262,11 @@ RSpec.describe Spree::Address, type: :model do
   end
 
   context '#name' do
-<<<<<<< HEAD
-    shared_examples 'name attribute' do
-      it 'concatenates firstname and lastname' do
-        address = described_class.new(firstname: 'Michael J.', lastname: 'Jackson')
-
-        expect(address.name).to eq('Michael J. Jackson')
-      end
-
-      it 'returns lastname when firstname is blank' do
-        address = described_class.new(firstname: nil, lastname: 'Jackson')
-
-        expect(address.name).to eq('Jackson')
-      end
-
-      it 'returns firstanme when lastname is blank' do
-        address = described_class.new(firstname: 'Michael J.', lastname: nil)
-
-        expect(address.name).to eq('Michael J.')
-      end
-
-      it 'returns empty string when firstname and lastname are blank' do
-        address = described_class.new(firstname: nil, lastname: nil)
-
-        expect(address.name).to eq('')
-      end
-
-      it 'is included in json representation' do
-        address = described_class.new(name: 'Jane Von Doe')
-
-        expect(address.as_json).to include('name' => 'Jane Von Doe')
-      end
-    end
-
-    context 'when preference `use_combined_first_and_last_name_in_address` is true' do
-      it_behaves_like 'name attribute'
-    end
-
-    context 'when preference `use_combined_first_and_last_name_in_address` is false' do
-      before do
-        stub_spree_preferences(use_combined_first_and_last_name_in_address: false)
-        allow(Spree::Deprecation).to receive(:warn).with(/firstname|lastname/, any_args)
-      end
-
-      it_behaves_like 'name attribute'
-=======
     it 'is included in json representation' do
       address = Spree::Address.new(name: 'Jane Von Doe')
 
       expect(address.as_json).to include('name' => 'Jane Von Doe')
       expect(address.as_json.keys).not_to include('firstname', 'lastname')
->>>>>>> upstream/v3.0
     end
   end
 
@@ -412,76 +294,4 @@ RSpec.describe Spree::Address, type: :model do
 
     it { is_expected.to be_require_phone }
   end
-<<<<<<< HEAD
-
-  context 'deprecations' do
-    let(:address) { described_class.new }
-
-    describe 'json representation' do
-      context 'when preference `use_combined_first_and_last_name_in_address` is true' do
-        it 'contains `name` but does not contain deprecated fields' do
-          expect(address.as_json).not_to include('firstname', 'lastname')
-          expect(address.as_json).to include('name')
-        end
-      end
-
-      context 'when preference `use_combined_first_and_last_name_in_address` is false' do
-        before do
-          stub_spree_preferences(use_combined_first_and_last_name_in_address: false)
-          allow(Spree::Deprecation).to receive(:warn).with(/firstname|lastname/, any_args)
-        end
-
-        it 'contains both deprecated fields and `name`' do
-          expect(address.as_json).to include('firstname', 'lastname', 'name')
-        end
-      end
-    end
-
-    specify 'firstname is deprecated' do
-      expect(Spree::Deprecation).to receive(:warn).with(/firstname/, any_args)
-
-      address.firstname
-    end
-
-    specify 'lastname is deprecated' do
-      expect(Spree::Deprecation).to receive(:warn).with(/lastname/, any_args)
-
-      address.lastname
-    end
-
-    specify 'full_name is deprecated' do
-      expect(Spree::Deprecation).to receive(:warn).with(/full_name/, any_args)
-
-      address.full_name
-    end
-  end
-
-  describe '==' do
-    context 'when first address has same name (virtual or not) as the second' do
-      let(:first_address) { build(:address, name: 'Mary Jane Watson') }
-      let(:second_address) { build(:address, name: nil, firstname: 'Mary Jane', lastname: 'Watson', zipcode: first_address.zipcode) }
-
-      context 'when firstname and lastname do not match' do
-        context 'when the preference `use_combined_first_and_last_name_in_address` is true' do
-          it 'they are still considered equals' do
-            expect(first_address.name).to eq(second_address.name)
-            expect(first_address).to eq(second_address)
-          end
-        end
-
-        context 'when the preference `use_combined_first_and_last_name_in_address` is false' do
-          before { stub_spree_preferences(use_combined_first_and_last_name_in_address: false) }
-
-          # This seems to be the most sensible behavior, as if we're not combining attributes,
-          # firstname and lastname should be accounted for when checking equality.
-          it 'they are not considered equals' do
-            expect(first_address.name).to eq(second_address.name)
-            expect(first_address).not_to eq(second_address)
-          end
-        end
-      end
-    end
-  end
-=======
->>>>>>> upstream/v3.0
 end
