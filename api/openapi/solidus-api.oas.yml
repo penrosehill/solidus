@@ -1,4 +1,7 @@
 openapi: 3.0.3
+x-stoplight:
+  docs:
+    showModels: false
 info:
   title: Solidus API
   version: '1.0'
@@ -8,9 +11,6 @@ info:
     url: 'https://solidus.io'
   license:
     name: ''
-x-stoplight:
-  docs:
-    showModels: false
 paths:
   /products:
     get:
@@ -38,6 +38,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     post:
@@ -117,6 +118,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
   '/orders/{number}':
@@ -227,7 +229,6 @@ paths:
         - Orders
       security:
         - api-key: []
-        - order-token: []
   /countries:
     get:
       responses:
@@ -257,6 +258,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
   '/countries/{id}':
     get:
       responses:
@@ -516,6 +518,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -678,7 +681,10 @@ paths:
         '404':
           $ref: '#/components/responses/not-found'
       summary: Get product variant
-      description: Retrieves a product's variant.
+      description: |-
+        **Deprecation Warning**: Use [shallow version](/docs/solidus/87df124706c5f-get-variant) instead
+
+        Retrieves a product's variant.
       operationId: get-product-variant
       tags:
         - Variants
@@ -710,7 +716,10 @@ paths:
         '422':
           $ref: '#/components/responses/delete-restriction'
       summary: Delete product variant
-      description: Deletes a product's variant.
+      description: |-
+        **Deprecation Warning**: Use [shallow version](/docs/solidus/82ccaada99139-delete-variant) instead
+
+        Deletes a product's variant.
       operationId: delete-product-variant
       tags:
         - Variants
@@ -731,7 +740,10 @@ paths:
         '422':
           $ref: '#/components/responses/unprocessable-entity'
       summary: Update product variant
-      description: Updates a product's variant.
+      description: |-
+        **Deprecation Warning**: Use [shallow version](/docs/solidus/ce338b5f3b940-update-variant) instead
+
+        Updates a product's variant.
       operationId: update-product-variant
       tags:
         - Variants
@@ -837,6 +849,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     post:
@@ -852,7 +865,10 @@ paths:
         '422':
           $ref: '#/components/responses/unprocessable-entity'
       summary: Create variant
-      description: 'Creates a variant. Only users with `can :create, Variant` permissions can perform this action.'
+      description: |-
+        **Deprecation Warning**: Use [nested version](/docs/solidus/681aa6cb75b1e-create-product-variant) instead
+
+        Creates a variant. Only users with `can :create, Variant` permissions can perform this action.
       operationId: create-variant
       tags:
         - Variants
@@ -1203,6 +1219,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
   '/users/{id}':
@@ -1398,6 +1415,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -1520,6 +1538,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -1682,6 +1701,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -1898,6 +1918,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     post:
@@ -2053,6 +2074,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
         - order-token: []
@@ -2213,6 +2235,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -2532,6 +2555,8 @@ paths:
           $ref: '#/components/responses/unprocessable-entity'
       summary: Create option value
       description: |-
+        **Deprecation Warning**: Use [nested version](/docs/solidus/810154673c613-create-option-type-value) instead
+
         Creates an option value.
 
         Only users with the `create` permission on `Spree::OptionValue` can perform this action.
@@ -2703,7 +2728,10 @@ paths:
         '404':
           $ref: '#/components/responses/not-found'
       summary: Get option type value
-      description: Retrieves an option type's value.
+      description: |-
+        **Deprecation Warning**: Use [shallow version](/docs/solidus/cbbc403ed08a3-get-option-value) instead
+
+        Retrieves an option type's value.
       operationId: get-option-type-value
       tags:
         - Option values
@@ -2737,7 +2765,10 @@ paths:
         '422':
           $ref: '#/components/responses/delete-restriction'
       summary: Delete option type value
-      description: Deletes an option type's value.
+      description: |-
+        **Deprecation Warning**: Use [shallow version](/docs/solidus/0742e63219b1f-delete-option-value) instead
+
+        Deletes an option type's value.
       operationId: delete-option-type-value
       tags:
         - Option values
@@ -2759,6 +2790,8 @@ paths:
           $ref: '#/components/responses/unprocessable-entity'
       summary: Update option type value
       description: |-
+        **Deprecation Warning**: Use [shallow version](/docs/solidus/b43f889175ebb-update-option-value) instead
+
         Updates an option type's value.
 
         Only users with the `update` permission on the option value can perform this action.
@@ -2803,6 +2836,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -2964,6 +2998,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     post:
@@ -3153,6 +3188,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     post:
@@ -3303,6 +3339,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -3454,6 +3491,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -3671,6 +3709,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     post:
@@ -3729,6 +3768,13 @@ paths:
         - Taxonomies
       security:
         - api-key: []
+      parameters:
+        - schema:
+            type: string
+            default: nested
+          in: query
+          name: set
+          description: When `set=nested` it will recoursively return all the taxons of that taxonomy
     parameters:
       - name: id
         in: path
@@ -3822,6 +3868,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -3985,6 +4032,12 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
+        - schema:
+            type: boolean
+          in: query
+          name: without_children
+          description: 'When set to `true`, it won''t recursively return all the taxons'' children.'
       security:
         - api-key: []
   /users:
@@ -4012,6 +4065,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     post:
@@ -4071,6 +4125,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     post:
@@ -5087,13 +5142,12 @@ paths:
   '/orders/{order_number}/empty':
     put:
       responses:
-        '204':
+        '200':
           description: ''
           content:
             application/json:
               schema:
-                type: object
-                properties: {}
+                $ref: '#/components/schemas/order-big'
         '401':
           $ref: '#/components/responses/invalid-api-key'
         '404':
@@ -5535,6 +5589,10 @@ paths:
         Creates a shipment.
 
         Please note that this request can be only performed by users with the `create` permission on the shipment.
+
+        **Deprecation Warning**: Adding items to the shipment via this endpoint
+        is deprecated. Instead, create an empty shipment and populate it with
+        the dedicated endpoint [to add items to the shipment](/docs/solidus/7078dbcf415ac-add-shipment-item).
       operationId: create-shipment
       tags:
         - Shipments
@@ -5550,8 +5608,10 @@ paths:
                   type: integer
                 variant_id:
                   type: integer
+                  deprecated: true
                 quantity:
                   type: integer
+                  deprecated: true
             examples:
               Example:
                 value:
@@ -5666,12 +5726,15 @@ paths:
           name: id
           schema:
             type: integer
+          description: The id of the Taxon
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
         - in: query
           name: simple
           schema:
             type: boolean
+          description: Returns a simplified version of the JSON
       security:
         - api-key: []
   '/orders/{order_number}/customer_returns':
@@ -5702,6 +5765,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/q'
       security:
         - api-key: []
     parameters:
@@ -5794,6 +5858,12 @@ components:
       schema:
         type: integer
         default: 25
+    q:
+      name: q
+      in: query
+      schema:
+        example: '?q[attribute_eq]=value'
+      description: 'Allows to query results based on search filters provided by Ransack (https://github.com/activerecord-hackery/ransack/).'
   responses:
     not-found:
       description: ''
@@ -5854,9 +5924,9 @@ components:
                 type: integer
   securitySchemes:
     api-key:
-      type: apiKey
-      name: Authorization
-      in: header
+      type: http
+      scheme: bearer
+      description: 'The `API key` is mandatory for each endpoint by default. You can change this configuration [with the Spree::Api::Config.requires_authentication preference](https://github.com/solidusio/solidus/blob/2b79f72aa53f5caa850c587888fff46c1c91f7b7/api/lib/spree/api_configuration.rb#L5) to avoid the default behavior and expose some endpoints without an API key. An example could be the [GET product list](https://solidus.stoplight.io/docs/solidus/08307f3d809e7-list-products) endpoint.'
     order-token:
       type: apiKey
       name: X-Spree-Order-Token
@@ -7021,8 +7091,6 @@ components:
           type: string
         available_on:
           type: string
-        permalink:
-          type: string
         meta_description:
           type: string
         meta_keywords:
@@ -7098,6 +7166,10 @@ components:
         track_inventory:
           type: boolean
         product_id:
+          type: integer
+        shipping_category_id:
+          type: integer
+        tax_category_id:
           type: integer
         weight:
           type: string

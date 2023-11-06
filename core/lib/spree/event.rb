@@ -21,7 +21,7 @@ module Spree
     #
     # @example Trigger an event named 'order_finalized'
     #   Spree::Event.fire 'order_finalized', order: @order do
-    #     @order.finalize!
+    #     @order.complete!
     #   end
     def fire(event_name, opts = {})
       adapter.fire normalize_name(event_name), opts do

@@ -1,51 +1,111 @@
 # frozen_string_literal: true
 
-require 'rails/generators'
 require 'rails/version'
+require 'rails/generators'
+require 'rails/generators/app_base'
 
 module Solidus
   # @private
-  class InstallGenerator < Rails::Generators::Base
+  class InstallGenerator < Rails::Generators::AppBase
+    argument :app_path, type: :string, default: Rails.root
+
     CORE_MOUNT_ROUTE = "mount Spree::Core::Engine"
 
-    PAYMENT_METHODS = {
-      'paypal' => 'solidus_paypal_commerce_platform',
-      'none' => nil,
-    }
+    FRONTENDS = %w[
+      none
+      classic
+      starter
+    ]
+
+    LEGACY_FRONTENDS = %w[
+      solidus_starter_frontend
+      solidus_frontend
+    ]
+
+    AUTHENTICATIONS = %w[
+      devise
+      existing
+      custom
+      none
+    ]
+
+    PAYMENT_METHODS = [
+      {
+        name: 'paypal',
+        frontends: %w[none classic starter],
+        description: 'Install `solidus_paypal_commerce_platform`',
+        default: true,
+      },
+      {
+        name: 'bolt',
+        frontends: %w[classic],
+        description: 'Install `solidus_bolt`',
+        default: false,
+      },
+      {
+        name: 'braintree',
+        frontends: %w[none starter],
+        description: 'Install `solidus_braintree`',
+        default: false,
+      },
+      {
+        name: 'none',
+        frontends: %w[none classic starter],
+        description: 'Skip installing a payment method',
+        default: false,
+      },
+    ]
 
     class_option :migrate, type: :boolean, default: true, banner: 'Run Solidus migrations'
     class_option :seed, type: :boolean, default: true, banner: 'Load seed data (migrations must be run)'
-    class_option :sample, type: :boolean, default: true, banner: 'Load sample data (migrations must be run)'
-    class_option :active_storage, type: :boolean, default: Rails.gem_version >= Gem::Version.new("6.1.0"), banner: 'Install ActiveStorage as image attachments handler for products and taxons'
+    class_option :sample, type: :boolean, default: true, banner: 'Load sample data (migrations and seeds must be run)'
+    class_option :active_storage, type: :boolean, default: (
+      Rails.gem_version >= Gem::Version.new("6.1.0")
+    ), banner: 'Install ActiveStorage as image attachments handler for products and taxons'
     class_option :auto_accept, type: :boolean
     class_option :user_class, type: :string
     class_option :admin_email, type: :string
     class_option :admin_password, type: :string
-    class_option :lib_name, type: :string, default: 'spree'
-    class_option :with_authentication, type: :boolean, default: true
-    class_option :enforce_available_locales, type: :boolean, default: nil
-    class_option :payment_method,
-                 type: :string,
-                 enum: PAYMENT_METHODS.keys,
-                 default: PAYMENT_METHODS.keys.first,
-                 desc: "Indicates which payment method to install."
 
-    def self.source_paths
-      paths = superclass.source_paths
-      paths << File.expand_path('../templates', "../../#{__FILE__}")
-      paths << File.expand_path('../templates', "../#{__FILE__}")
-      paths << File.expand_path('templates', __dir__)
-      paths.flatten
+    class_option :frontend, type: :string, enum: FRONTENDS + LEGACY_FRONTENDS, default: nil, desc: "Indicates which frontend to install."
+    class_option :authentication, type: :string, enum: AUTHENTICATIONS, default: nil, desc: "Indicates which authentication system to install."
+    class_option :payment_method, type: :string, enum: PAYMENT_METHODS.map { |payment_method| payment_method[:name] }, default: nil, desc: "Indicates which payment method to install."
+
+    # DEPRECATED
+    class_option :with_authentication, type: :boolean, hide: true, default: nil
+    class_option :enforce_available_locales, type: :boolean, hide: true, default: nil
+    class_option :lib_name, type: :string, hide: true, default: nil
+
+    source_root "#{__dir__}/templates"
+
+    def self.exit_on_failure?
+      true
     end
 
     def prepare_options
       @run_migrations = options[:migrate]
-      @load_seed_data = options[:seed]
-      @load_sample_data = options[:sample]
+      @load_seed_data = options[:seed] && @run_migrations
+      @load_sample_data = options[:sample] && @run_migrations && @load_seed_data
+      @selected_frontend = detect_frontend_to_install
+      @selected_authentication = detect_authentication_to_install
+      @selected_payment_method = detect_payment_method_to_install
 
-      unless @run_migrations
-         @load_seed_data = false
-         @load_sample_data = false
+      # Silence verbose output (e.g. Rails migrations will rely on this environment variable)
+      ENV['VERBOSE'] = 'false'
+
+      # No reason to check for their presence if we're about to install them
+      ENV['SOLIDUS_SKIP_MIGRATIONS_CHECK'] = 'true'
+
+      if options[:enforce_available_locales] != nil
+        warn \
+          "DEPRECATION WARNING: using `solidus:install --enforce-available-locales` is now deprecated and has no effect. " \
+          "Since Rails 4.1 the default is `true` so we no longer need to explicitly set a value."
+      end
+
+      if options[:lib_name] != nil
+        warn \
+          "DEPRECATION WARNING: using `solidus:install --lib-name` is now deprecated and has no effect. " \
+          "The option is legacy and should be removed from scripts still using it."
       end
     end
 
@@ -55,45 +115,22 @@ module Solidus
 
     def install_file_attachment
       if options[:active_storage]
-        say "Installing Active Storage", :green
+        say_status :assets, "Active Storage", :green
         rake 'active_storage:install'
       else
-        say "Installing Paperclip", :green
-        gsub_file 'config/initializers/spree.rb', "ActiveStorageAttachment", "PaperclipAttachment"
+        say_status :assets, "Paperclip", :green
+        gsub_file 'config/initializers/spree.rb', "::ActiveStorageAttachment", "::PaperclipAttachment"
       end
-    end
-
-    def additional_tweaks
-      return unless File.exist? 'public/robots.txt'
-
-      append_file "public/robots.txt", <<-ROBOTS.strip_heredoc
-        User-agent: *
-        Disallow: /checkout
-        Disallow: /cart
-        Disallow: /orders
-        Disallow: /user
-        Disallow: /account
-        Disallow: /api
-        Disallow: /password
-      ROBOTS
     end
 
     def setup_assets
-      @lib_name = 'spree'
-
       empty_directory 'app/assets/images'
 
       %w{javascripts stylesheets images}.each do |path|
-        empty_directory "vendor/assets/#{path}/spree/frontend" if defined? Spree::Frontend || Rails.env.test?
-        empty_directory "vendor/assets/#{path}/spree/backend" if defined? Spree::Backend || Rails.env.test?
+        empty_directory "vendor/assets/#{path}/spree/backend" if defined?(Spree::Backend) || Rails.env.test?
       end
 
-      if defined? Spree::Frontend || Rails.env.test?
-        template "vendor/assets/javascripts/spree/frontend/all.js"
-        template "vendor/assets/stylesheets/spree/frontend/all.css"
-      end
-
-      if defined? Spree::Backend || Rails.env.test?
+      if defined?(Spree::Backend) || Rails.env.test?
         template "vendor/assets/javascripts/spree/backend/all.js"
         template "vendor/assets/stylesheets/spree/backend/all.css"
       end
@@ -103,73 +140,15 @@ module Solidus
       empty_directory "app/overrides"
     end
 
-    def configure_application
-      application <<-RUBY
-    # Load application's model / class decorators
-    initializer 'spree.decorators' do |app|
-      config.to_prepare do
-        Dir.glob(Rails.root.join('app/**/*_decorator*.rb')) do |path|
-          require_dependency(path)
-        end
-      end
-    end
-      RUBY
-
-      if !options[:enforce_available_locales].nil?
-        application <<-RUBY
-    # Prevent this deprecation message: https://github.com/svenfuchs/i18n/commit/3b6e56e
-    I18n.enforce_available_locales = #{options[:enforce_available_locales]}
-        RUBY
-      end
-    end
-
-    def plugin_install_preparation
-      @plugins_to_be_installed = []
-      @plugin_generators_to_run = []
-    end
-
-    def install_auth_plugin
-      if options[:with_authentication] && (options[:auto_accept] || !no?("
-        Solidus has a default authentication extension that uses Devise.
-        You can find more info at https://github.com/solidusio/solidus_auth_devise.
-
-        Would you like to install it? (y/n)"))
-
-        @plugins_to_be_installed << 'solidus_auth_devise'
-        @plugin_generators_to_run << 'solidus:auth:install'
-      end
-    end
-
-    def install_payment_method
-      name = options[:payment_method]
-
-      unless options[:auto_accept]
-        available_names = PAYMENT_METHODS.keys
-
-        name = ask("
-  You can select a payment method to be included in the installation process.
-  Please select a payment method name:", limited_to: available_names, default: available_names.first)
-      end
-
-      gem_name = PAYMENT_METHODS.fetch(name)
-
-      if gem_name
-        @plugins_to_be_installed << gem_name
-        @plugin_generators_to_run << "#{gem_name}:install"
-      end
-    end
-
     def include_seed_data
-      append_file "db/seeds.rb", <<-RUBY.strip_heredoc
-
-        Spree::Core::Engine.load_seed if defined?(Spree::Core)
-        Spree::Auth::Engine.load_seed if defined?(Spree::Auth)
+      append_file "db/seeds.rb", <<~RUBY
+        Spree::Core::Engine.load_seed
       RUBY
     end
 
     def install_migrations
       say_status :copying, "migrations"
-      `rake railties:install:migrations`
+      rake 'railties:install:migrations'
     end
 
     def create_database
@@ -177,16 +156,18 @@ module Solidus
       rake 'db:create'
     end
 
-    def run_bundle_install_if_needed_by_plugins
-      @plugins_to_be_installed.each do |plugin_name|
-        gem plugin_name
-      end
-
-      bundle_cleanly{ run "bundle install" } if @plugins_to_be_installed.any?
-      run "spring stop" if defined?(Spring)
-
-      @plugin_generators_to_run.each do |plugin_generator_name|
-        generate "#{plugin_generator_name} --skip_migrations=true"
+    def install_routes
+      if Pathname(app_path).join('config', 'routes.rb').read.include? CORE_MOUNT_ROUTE
+        say_status :route_exist, CORE_MOUNT_ROUTE, :blue
+      else
+        route <<~RUBY
+          # This line mounts Solidus's routes at the root of your application.
+          # This means, any requests to URLs such as /products, will go to Spree::ProductsController.
+          # If you would like to change where this engine is mounted, simply change the :at option to something different.
+          #
+          # We ask that you don't use the :as option here, as Solidus relies on it being the default of "spree"
+          #{CORE_MOUNT_ROUTE}, at: '/'
+        RUBY
       end
     end
 
@@ -194,15 +175,27 @@ module Solidus
       if @run_migrations
         say_status :running, "migrations"
 
-        rake 'db:migrate VERBOSE=false'
+        rake 'db:migrate'
       else
         say_status :skipping, "migrations (don't forget to run rake db:migrate)"
       end
     end
 
+    def install_authentication
+      apply_template_for :authentication, @selected_authentication
+    end
+
+    def install_frontend
+      apply_template_for :frontend, @selected_frontend
+    end
+
+    def install_payment_method
+      apply_template_for :payment_method, @selected_payment_method
+    end
+
     def populate_seed_data
       if @load_seed_data
-        say_status :loading,  "seed data"
+        say_status :loading, "seed data"
         rake_options = []
         rake_options << "AUTO_ACCEPT=1" if options[:auto_accept]
         rake_options << "ADMIN_EMAIL=#{options[:admin_email]}" if options[:admin_email]
@@ -223,43 +216,148 @@ module Solidus
       end
     end
 
-    def install_routes
-      routes_file_path = File.join('config', 'routes.rb')
-      unless File.read(routes_file_path).include? CORE_MOUNT_ROUTE
-        insert_into_file routes_file_path, after: "Rails.application.routes.draw do\n" do
-          <<-RUBY
-  # This line mounts Solidus's routes at the root of your application.
-  # This means, any requests to URLs such as /products, will go to Spree::ProductsController.
-  # If you would like to change where this engine is mounted, simply change the :at option to something different.
-  #
-  # We ask that you don't use the :as option here, as Solidus relies on it being the default of "spree"
-  #{CORE_MOUNT_ROUTE}, at: '/'
-
-          RUBY
-        end
-      end
-
-      unless options[:quiet]
-        puts "*" * 50
-        puts "We added the following line to your application's config/routes.rb file:"
-        puts " "
-        puts "    #{CORE_MOUNT_ROUTE}, at: '/'"
-      end
-    end
-
     def complete
-      unless options[:quiet]
-        puts "*" * 50
-        puts "Solidus has been installed successfully. You're all ready to go!"
-        puts " "
-        puts "Enjoy!"
-      end
+      say_status :complete, "Solidus has been installed successfully. Enjoy!"
     end
 
     private
 
-    def bundle_cleanly(&block)
-      Bundler.respond_to?(:with_unbundled_env) ? Bundler.with_unbundled_env(&block) : Bundler.with_clean_env(&block)
+    def bundle_command(command, env = {})
+      # Make `bundle install` less verbose by skipping the "Using ..." messages
+      super(command, env.reverse_merge('BUNDLE_SUPPRESS_INSTALL_USING_MESSAGES' => 'true'))
+    ensure
+      Bundler.reset_paths!
+    end
+
+    def ask_with_description(desc:, limited_to:, default:)
+      loop do
+        say_status :question, desc, :yellow
+        answer = ask(set_color("answer:".rjust(13), :blue, :bold)).to_s.downcase.presence
+
+        case answer
+        when nil
+          say_status :using, "#{default} (default)"
+          break default
+        when *limited_to.map(&:to_s)
+          say_status :using, answer
+          break answer
+        else say_status :error, "Please select a valid answer:", :red
+        end
+      end
+    end
+
+    def apply_template_for(topic, selected)
+      template_path = Dir["#{__dir__}/app_templates/#{topic}/*.rb"].find do |path|
+        File.basename(path, '.rb') == selected
+      end
+
+      unless template_path
+        say_status :warning, "Unknown #{topic}: #{selected.inspect}, attempting to run it with `rails app:template`"
+        template_path = selected
+      end
+
+      say_status :installing, "[#{topic}] #{selected}", :blue
+      apply template_path
+    end
+
+    def with_env(vars)
+      original = ENV.to_hash
+      vars.each { |k, v| ENV[k] = v }
+
+      begin
+        yield
+      ensure
+        ENV.replace(original)
+      end
+    end
+
+    def detect_frontend_to_install
+      # We need to support names that were available in v3.2
+      selected_frontend = 'starter' if options[:frontend] == 'solidus_starter_frontend'
+      selected_frontend = 'classic' if options[:frontend] == 'solidus_frontend'
+      selected_frontend ||= options[:frontend]
+
+      ENV['FRONTEND'] ||
+        selected_frontend ||
+        (Bundler.locked_gems.dependencies['solidus_frontend'] && 'classic') ||
+        (options[:auto_accept] && 'starter') ||
+        ask_with_description(
+          default: 'starter',
+          limited_to: FRONTENDS,
+          desc: <<~TEXT
+            Which frontend would you like to use?
+
+            - [#{set_color 'starter', :bold}] Generate all necessary controllers and views directly in your Rails app (#{set_color :default, :bold}).
+            - [#{set_color 'classic', :bold}] Install `solidus_frontend`, was the default in previous solidus versions (#{set_color :deprecated, :bold}).
+            - [#{set_color 'none', :bold}] Skip installing a frontend.
+
+            Selecting `starter` is recommended, however, some extensions are still only compatible with `classic`.
+          TEXT
+        )
+    end
+
+    def detect_authentication_to_install
+      return 'devise' if @selected_frontend == 'starter'
+
+      if options[:with_authentication] != nil
+        say_status :warning, \
+          "Using `solidus:install --with-authentication` is now deprecated. " \
+          "Please use `--authentication` instead (see --help for the full list of options).",
+          :red
+
+        if options[:with_authentication] == 'false'
+          # Don't use the default authentication if the user explicitly
+          # requested no authentication system.
+          return 'none'
+        else
+          return 'devise'
+        end
+      end
+
+      ENV['AUTHENTICATION'] ||
+        options[:authentication] ||
+        (Bundler.locked_gems.dependencies['solidus_auth_devise'] && 'devise') ||
+        (options[:auto_accept] && 'devise') ||
+        ask_with_description(
+          default: 'devise',
+          limited_to: AUTHENTICATIONS,
+          desc: <<~TEXT
+            Which authentication would you like to use?
+
+            - [#{set_color 'devise', :bold}] Install and configure the standard `devise` integration. (#{set_color :default, :bold}).
+            - [#{set_color 'existing', :bold}] Integrate and configure an existing `devise` setup.
+            - [#{set_color 'custom', :bold}] A starter configuration for rolling your own authentication system.
+            - [#{set_color 'none', :bold}] Don't add any configuration for authentication.
+
+            Selecting `devise` is recommended.
+          TEXT
+        )
+    end
+
+    def detect_payment_method_to_install
+      return 'paypal' if Bundler.locked_gems.dependencies['solidus_paypal_commerce_platform']
+      return 'bolt' if Bundler.locked_gems.dependencies['solidus_bolt']
+
+      selected_frontend_payment_methods = PAYMENT_METHODS.select do |payment_method|
+        payment_method[:frontends].include?(@selected_frontend)
+      end
+
+      selected = options[:payment_method] || (options[:auto_accept] && 'paypal') ||
+        ask_with_description(
+          default: 'paypal',
+          limited_to: selected_frontend_payment_methods.map { |payment_method| payment_method[:name] },
+          desc: <<~TEXT
+            Which payment method would you like to use?
+
+            #{selected_frontend_payment_methods.map { |payment_method| formatted_payment_method_description(payment_method) }.join("\n")}
+          TEXT
+        )
+    end
+
+    def formatted_payment_method_description(payment_method)
+      default_label = " (#{set_color :default, :bold})" if payment_method[:default]
+
+      "- [#{set_color payment_method[:name], :bold}] #{payment_method[:description]}#{default_label}."
     end
   end
 end

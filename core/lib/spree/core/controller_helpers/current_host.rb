@@ -7,9 +7,11 @@ module Spree
         extend ActiveSupport::Concern
 
         included do
-          before_action do
-            ActiveStorage::Current.host = request.base_url
-          end
+          Spree::Deprecation.warn <<~MSG
+            'Spree::Core::ControllerHelpers::CurrentHost' is deprecated.
+            Please, include 'ActiveStorage::SetCurrent' instead.
+          MSG
+          include ActiveStorage::SetCurrent
         end
       end
     end

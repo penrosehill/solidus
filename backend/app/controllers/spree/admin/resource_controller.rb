@@ -78,8 +78,13 @@ class Spree::Admin::ResourceController < Spree::Admin::BaseController
 
   def update_positions
     ActiveRecord::Base.transaction do
-      params[:positions].each do |id, index|
-        model_class.find_by(id: id)&.set_list_position(index)
+      positions = params[:positions]
+      records = model_class.where(id: positions.keys).to_a
+
+      positions.each do |id, index|
+        # To permit the use of UUID as id, we compare models id in database
+        # and in params under the string representation instead of integer
+        records.find { |r| r.id.to_s == id }&.set_list_position(index)
       end
     end
 

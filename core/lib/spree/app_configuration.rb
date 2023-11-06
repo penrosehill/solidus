@@ -21,7 +21,7 @@ require "spree/core/search/base"
 require "spree/core/search/variant"
 require 'spree/preferences/configuration'
 require 'spree/core/environment'
-require 'rails/gem_version'
+require 'spree/rails_compatibility'
 
 module Spree
   class AppConfiguration < Preferences::Configuration
@@ -60,6 +60,27 @@ module Spree
     # @!attribute [rw] allow_guest_checkout
     #   @return [Boolean] When false, customers must create an account to complete an order (default: +true+)
     preference :allow_guest_checkout, :boolean, default: true
+
+    # @!attribute [rw] allow_promotions_any_match_policy
+    #   @return [Boolean] When false, admins cannot create promotions with an "any" match policy (default: +false+)
+    #                     Create individual, separate promotions for each of your rules instead.
+    preference :allow_promotions_any_match_policy, :boolean, default: false
+    def allow_promotions_any_match_policy=(value)
+      if value == true
+        Spree::Deprecation.warn <<~MSG
+          Solidus 4.0 will remove support for combining promotion rules with the "any" match policy.
+
+          Instead, it's suggested to create individual, separate promotions for each of your current
+          rules combined with the "any" policy. To automate this task, you can use the provided
+          task:
+
+                  bin/rake solidus:split_promotions_with_any_match_policy
+        MSG
+      end
+
+      preferences[:allow_promotions_any_match_policy] = value
+    end
+
 
     # @!attribute [rw] guest_token_cookie_options
     #   @return [Hash] Add additional guest_token cookie options here (ie. domain or path)
@@ -146,6 +167,42 @@ module Spree
     #   @return [String] Two-letter ISO code of a {Spree::Country} to assumed as the country of an unidentified customer (default: "US")
     preference :default_country_iso, :string, default: 'US'
 
+    # @!attribute [rw] default_email_regexp
+    #   @return [Regexp] Regex to be used in email validations, for example in Spree::EmailValidator
+    preference :default_email_regexp, :regexp, default: URI::MailTo::EMAIL_REGEXP
+
+    # @!attribute [rw] extra_taxon_validations
+    #   Use extra validations on Taxons in 3.4.0, but default to false so stores can
+    #   upgrade and then fix any now invalid Taxons before enabling.
+    #   @return [Boolean]
+    versioned_preference :extra_taxon_validations, :boolean, initial_value: false, boundaries: { "3.4.0.dev" => true }
+    def extra_taxon_validations=(value)
+      Spree::Deprecation.warn <<~MSG
+        Solidus will remove `Spree::Config.extra_taxon_validations` preference
+        in the next major release and will always use the extra Taxon validations.
+        Before upgrading to the next major, please fix any now invalid Taxons
+        and then remove the preference definition in `config/initializers/spree.rb`.
+      MSG
+
+      preferences[:extra_taxon_validations] = value
+    end
+
+    # @!attribute [rw] extra_taxonomy_validations
+    #   Use extra validations on Taxonomies in 3.4.0, but default to false so stores can
+    #   upgrade and then fix any now invalid Taxonomies before enabling.
+    #   @return [Boolean]
+    versioned_preference :extra_taxonomy_validations, :boolean, initial_value: false, boundaries: { "3.4.0.dev" => true }
+    def extra_taxonomy_validations=(value)
+      Spree::Deprecation.warn <<~MSG
+        Solidus will remove `Spree::Config.extra_taxonomy_validations` preference
+        in the next major release and will always use the extra Taxonomy validations.
+        Before upgrading to the next major, please fix any now invalid Taxons
+        and then remove the preference definition in `config/initializers/spree.rb`.
+      MSG
+
+      preferences[:extra_taxonomy_validations] = value
+    end
+
     # @!attribute [rw] generate_api_key_for_all_roles
     #   @return [Boolean] Allow generating api key automatically for user
     #   at role_user creation for all roles. (default: +false+)
@@ -184,7 +241,17 @@ module Spree
 
     # @!attribute [rw] mails_from
     #   @return [String] Email address used as +From:+ field in transactional emails.
+    #   @deprecated Spree::Store#mail_from_address is used instead
     preference :mails_from, :string, default: 'solidus@example.com'
+    def mails_from=(value)
+      Spree::Deprecation.warn(<<~MSG) && preferences[:mail_from] = value
+        Solidus doesn't use `Spree::Config.mails_from` preference and it'll
+        removed on the next major release. Please, remove its definition in
+        `config/initializers/spree.rb`. Use the `Spree::Store#mail_from_address`
+        attribute for the default email address used as the 'From:' field in
+        transactional emails.
+      MSG
+    end
 
     # @!attribute [rw] max_level_in_taxons_menu
     #   @return [Integer] maximum nesting level in taxons menu (default: +1+)
@@ -280,6 +347,13 @@ module Spree
     #   @return [] Track on_hand values for variants / products. (default: true)
     preference :track_inventory_levels, :boolean, default: true
 
+    # @!attribute [rw] use_legacy_events
+    #   Before v3.2, Solidus used a custom pub/sub implementation based on
+    #   ActiveSupport::Notifications. Now, we internally use and recommend
+    #   [Omnes](https://github.com/nebulab/omnes). This preference allows falling
+    #   back to the old system.
+    #   @return [Boolean]
+    versioned_preference :use_legacy_events, :boolean, initial_value: true, boundaries: { "3.2.0.alpha" => false }
 
     # Other configurations
 
@@ -327,6 +401,9 @@ module Spree
     # promotion_chooser_class allows extensions to provide their own PromotionChooser
     class_name_attribute :promotion_chooser_class, default: 'Spree::PromotionChooser'
 
+    # promotion_adjuster_class allows extensions to provide their own Promotion Adjuster
+    class_name_attribute :promotion_adjuster_class, default: 'Spree::Promotion::OrderAdjustmentsRecalculator'
+
     class_name_attribute :allocator_class, default: 'Spree::Stock::Allocator::OnHandFirst'
 
     class_name_attribute :shipping_rate_sorter_class, default: 'Spree::Stock::ShippingRateSorter'
@@ -348,6 +425,13 @@ module Spree
     #   (e.g. an ActionMailer with a "confirm_email" method) with the same
     #   signature as Spree::OrderMailer.confirm_email.
     class_name_attribute :order_mailer_class, default: 'Spree::OrderMailer'
+
+    # Allows providing your own order update attributes class for checkout.
+    #
+    # @!attribute [rw] order_update_attributes_class
+    # @return [Class] a class that responds to "call"
+    #   with the same signature as Spree::OrderUpdateAttributes.
+    class_name_attribute :order_update_attributes_class, default: 'Spree::OrderUpdateAttributes'
 
     # Allows providing your own Mailer for promotion code batch mailer.
     #
@@ -388,6 +472,28 @@ module Spree
     # @return [Class] a class with the same public interfaces as
     #   Spree::Wallet::DefaultPaymentBuilder.
     class_name_attribute :default_payment_builder_class, default: 'Spree::Wallet::DefaultPaymentBuilder'
+
+    # Allows providing your own class for managing the contents of an order.
+    #
+    # @!attribute [rw] order_contents_class
+    # @return [Class] a class with the same public interfaces as
+    #   Spree::OrderContents.
+    class_name_attribute :order_contents_class, default: 'Spree::OrderContents'
+
+    # Allows providing your own class for shipping an order.
+    #
+    # @!attribute [rw] order_shipping_class
+    # @return [Class] a class with the same public interfaces as
+    #   Spree::OrderShipping.
+    class_name_attribute :order_shipping_class, default: 'Spree::OrderShipping'
+
+    # Allows providing your own class for managing the inventory units of a
+    # completed order.
+    #
+    # @!attribute [rw] order_cancellations_class
+    # @return [Class] a class with the same public interfaces as
+    #   Spree::OrderCancellations.
+    class_name_attribute :order_cancellations_class, default: 'Spree::OrderCancellations'
 
     # Allows providing your own class for canceling payments.
     #
@@ -460,7 +566,7 @@ module Spree
     # @!attribute [rw] image_attachment_module
     # @return [Module] a module that can be included into Spree::Image to allow attachments
     # Enumerable of images adhering to the present_image_class interface
-    class_name_attribute :image_attachment_module, default: Rails.gem_version >= Gem::Version.new("6.1.0") ? "Spree::Image::ActiveStorageAttachment" : "Spree::Image::PaperclipAttachment"
+    class_name_attribute :image_attachment_module, default: Spree::RailsCompatibility.default_image_attachment_module
 
     # @!attribute [rw] allowed_image_mime_types
     #
@@ -470,13 +576,54 @@ module Spree
     # @return [Array]
     class_name_attribute :allowed_image_mime_types, default: %w(image/jpeg image/jpg image/png image/gif).freeze
 
-    # @!attribute [rw] allowed_image_mime_types
+    # @!attribute [rw] product_image_style_default
     #
-    # Defines which MIME types are allowed for images
-    # `%w(image/jpeg image/jpg image/png image/gif).freeze` is the default.
+    # Defines which style to default to when style is not provided
+    # :product is the default.
     #
-    # @return [Array]
-    class_name_attribute :allowed_image_mime_types, default: %w(image/jpeg image/jpg image/png image/gif).freeze
+    # @return [Symbol]
+    class_name_attribute :product_image_style_default, default: :product
+
+    # @!attribute [rw] product_image_styles
+    #
+    # Defines image styles/sizes hash for styles
+    # `{ mini: '48x48>',
+    #    small: '400x400>',
+    #    product: '680x680>',
+    #    large: '1200x1200>' } is the default.
+    #
+    # @return [Hash]
+    class_name_attribute :product_image_styles, default: { mini: '48x48>',
+                                                          small: '400x400>',
+                                                          product: '680x680>',
+                                                          large: '1200x1200>' }
+
+    # Allows providing your own class for prioritizing store credit application
+    # to an order.
+    #
+    # @!attribute [rw] store_credit_prioritizer_class
+    # @return [Class] a class with the same public interfaces as
+    #   Spree::StoreCreditPrioritizer.
+    class_name_attribute :store_credit_prioritizer_class, default: 'Spree::StoreCreditPrioritizer'
+
+    # @!attribute [rw] taxon_image_style_default
+    #
+    # Defines which style to default to when style is not provided
+    # :mini is the default.
+    #
+    # @return [Symbol]
+    class_name_attribute :taxon_image_style_default, default: :mini
+
+    # @!attribute [rw] taxon_styles
+    #
+    # Defines taxon styles/sizes hash for styles
+    # `{ mini: '48x48>',
+    #    small: '400x400>',
+    #    product: '680x680>',
+    #    large: '1200x1200>' } is the default.
+    #
+    # @return [Hash]
+    class_name_attribute :taxon_image_styles, default: { mini: '32x32>', normal: '128x128>' }
 
     # Allows switching attachment library for Taxon
     #
@@ -486,7 +633,18 @@ module Spree
     # @!attribute [rw] taxon_attachment_module
     # @return [Module] a module that can be included into Spree::Taxon to allow attachments
     # Enumerable of taxons adhering to the present_taxon_class interface
-    class_name_attribute :taxon_attachment_module, default: Rails.gem_version >= Gem::Version.new("6.1.0") ? "Spree::Taxon::ActiveStorageAttachment" : "Spree::Taxon::PaperclipAttachment"
+    class_name_attribute :taxon_attachment_module, default: Spree::RailsCompatibility.default_taxon_attachment_module
+
+    # Configures the absolute path that contains the Solidus engine
+    # migrations. This will be checked at app boot to confirm that all Solidus
+    # migrations are installed.
+    #
+    # @!attribute [rw] migration_path
+    # @return [Pathname] the configured path. (default: `Rails.root.join('db', 'migrate')`)
+    attr_writer :migration_path
+    def migration_path
+      @migration_path ||= ::Rails.root.join('db', 'migrate')
+    end
 
     # Allows providing your own class instance for generating order numbers.
     #

@@ -45,7 +45,7 @@ describe "Product Stock", type: :feature do
     end
 
     it "contains a link to recent stock movements", js: true do
-      expect(page).to have_link(nil, href: "/admin/stock_locations/#{stock_location.id}/stock_movements?q%5Bvariant_sku_eq%5D=#{variant.sku}")
+      expect(page).to have_link(nil, href: "http://#{page.server.host}:#{page.server.port}/admin/stock_locations/#{stock_location.id}/stock_movements?q%5Bvariant_sku_eq%5D=#{variant.sku}")
     end
 
     it "can create a positive stock adjustment", js: true do
@@ -70,6 +70,17 @@ describe "Product Stock", type: :feature do
       click_link "Product Stock"
       within("tr#spree_variant_#{variant.id}") do
         expect(find(:css, "input[type='checkbox']")).not_to be_checked
+      end
+    end
+
+    context "when the admin user can't edit stock items" do
+      custom_authorization! do |_user|
+        cannot :edit, Spree::StockItem
+      end
+
+      it "doesn't allow editing", js: true do
+        click_link "Product Stock"
+        expect(first("input[type='number']")).to be_disabled
       end
     end
 

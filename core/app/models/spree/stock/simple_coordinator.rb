@@ -24,7 +24,8 @@ module Spree
 
       def initialize(order, inventory_units = nil)
         @order = order
-        @inventory_units = inventory_units || InventoryUnitBuilder.new(order).units
+        @inventory_units =
+          inventory_units || Spree::Config.stock.inventory_unit_builder_class.new(order).units
         @splitters = Spree::Config.environment.stock_splitters
 
         filtered_stock_locations = Spree::Config.stock.location_filter_class.new(Spree::StockLocation.all, @order).filter
@@ -90,16 +91,6 @@ module Spree
           stock_location = initial_package.stock_location
           Spree::Stock::SplitterChain.new(stock_location, @splitters).split([initial_package])
         end
-      end
-
-      def sort_availability(availability)
-        sorted_availability = availability.sort_by do |stock_location_id, _|
-          @stock_locations.find_index do |stock_location|
-            stock_location.id == stock_location_id
-          end
-        end
-
-        Hash[sorted_availability]
       end
 
       def get_units(quantities)

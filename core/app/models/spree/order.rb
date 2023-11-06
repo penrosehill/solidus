@@ -38,9 +38,21 @@ module Spree
     class CannotRebuildShipments < StandardError; end
 
     extend Spree::DisplayMoney
-    money_methods :outstanding_balance, :item_total, :adjustment_total,
-      :included_tax_total, :additional_tax_total, :tax_total,
-      :shipment_total, :total, :order_total_after_store_credit, :total_available_store_credit
+    money_methods(
+      :outstanding_balance,
+      :item_total,
+      :adjustment_total,
+      :included_tax_total,
+      :additional_tax_total,
+      :tax_total,
+      :shipment_total,
+      :total,
+      :order_total_after_store_credit,
+      :total_available_store_credit,
+      :item_total_before_tax,
+      :shipment_total_before_tax,
+      :item_total_excluding_vat
+    )
     alias :display_ship_total :display_shipment_total
 
     checkout_flow do
@@ -50,8 +62,8 @@ module Spree
       go_to_state :confirm
     end
 
-    self.whitelisted_ransackable_associations = %w[shipments user order_promotions promotions bill_address ship_address line_items]
-    self.whitelisted_ransackable_attributes = %w[completed_at created_at email number state payment_state shipment_state total store_id]
+    self.allowed_ransackable_associations = %w[shipments user order_promotions promotions bill_address ship_address line_items]
+    self.allowed_ransackable_attributes = %w[completed_at created_at email number state payment_state shipment_state total store_id]
 
     attr_reader :coupon_code
     attr_accessor :temporary_address
@@ -102,7 +114,7 @@ module Spree
     # Returns
     has_many :return_authorizations, dependent: :destroy, inverse_of: :order
     has_many :return_items, through: :inventory_units
-    has_many :customer_returns, through: :return_items
+    has_many :customer_returns, -> { distinct }, through: :return_items
     has_many :reimbursements, inverse_of: :order
     has_many :refunds, through: :payments
 
@@ -128,7 +140,7 @@ module Spree
     before_create :create_token
     before_create :link_by_email
 
-    validates :email, presence: true, if: :require_email
+    validates :email, presence: true, if: :email_required?
     validates :email, 'spree/email' => true, allow_blank: true
     validates :guest_token, presence: { allow_nil: true }
     validates :number, presence: true, uniqueness: { allow_blank: true, case_sensitive: true }
@@ -195,6 +207,10 @@ module Spree
       line_items.to_a.sum(&:total_before_tax)
     end
 
+    def shipment_total_before_tax
+      shipments.to_a.sum(&:total_before_tax)
+    end
+
     # Sum of all line item amounts pre-tax
     def item_total_excluding_vat
       line_items.to_a.sum(&:total_excluding_vat)
@@ -239,7 +255,7 @@ module Spree
         ship_address
       else
         bill_address
-      end || store.default_cart_tax_location
+      end || store&.default_cart_tax_location
     end
 
     def updater
@@ -269,15 +285,15 @@ module Spree
     end
 
     def contents
-      @contents ||= Spree::OrderContents.new(self)
+      @contents ||= Spree::Config.order_contents_class.new(self)
     end
 
     def shipping
-      @shipping ||= Spree::OrderShipping.new(self)
+      @shipping ||= Spree::Config.order_shipping_class.new(self)
     end
 
     def cancellations
-      @cancellations ||= Spree::OrderCancellations.new(self)
+      @cancellations ||= Spree::Config.order_cancellations_class.new(self)
     end
 
     # Associates the specified user with the order.
@@ -379,25 +395,16 @@ module Spree
       Spree::CreditCard.where(id: credit_card_ids)
     end
 
-    # Finalizes an in progress order after checkout is complete.
-    # Called after transition to complete state when payments will have been processed
+    # TODO: Remove on Solidus 4.0
+    # @api private
     def finalize!
-      # lock all adjustments (coupon promotions, etc.)
-      all_adjustments.each(&:finalize!)
-
-      # update payment and shipment(s) states, and save
-      updater.update_payment_state
-      shipments.each do |shipment|
-        shipment.update_state
-        shipment.finalize!
-      end
-
-      updater.update_shipment_state
-      save!
-
-      touch :completed_at
-
-      Spree::Event.fire 'order_finalized', order: self
+      Spree::Deprecation.warn <<~MSG
+        Calling `Spree::Order#finalize!` is discouraged. Instead, use
+        `Spree::Order#complete!`, which goes through all the needed safety
+        checks before finalizing an order. This method will be removed
+        altogether on Solidus 4.0.
+      MSG
+      finalize
     end
 
     def fulfill!
@@ -495,7 +502,8 @@ module Spree
     end
 
     def create_shipments_for_line_item(line_item)
-      units = Spree::Stock::InventoryUnitBuilder.new(self).missing_units_for_line_item(line_item)
+      units = Spree::Config.stock.inventory_unit_builder_class.new(self).missing_units_for_line_item(line_item)
+
       Spree::Config.stock.coordinator_class.new(self, units).shipments.each do |shipment|
         shipments << shipment
       end
@@ -526,7 +534,7 @@ module Spree
         state: 'cart',
         updated_at: Time.current
       )
-      next! if !line_items.empty?
+      self.next if line_items.any?
     end
 
     def refresh_shipment_rates
@@ -564,7 +572,7 @@ module Spree
 
     def has_non_reimbursement_related_refunds?
       refunds.non_reimbursement.exists? ||
-        payments.offset_payment.exists? # how old versions of spree stored refunds
+        payments.where("source_type = 'Spree::Payment' AND amount < 0 AND state = 'completed'").exists? # how old versions of spree stored refunds
     end
 
     def tax_total
@@ -588,8 +596,9 @@ module Spree
 
       if matching_store_credits.any?
         payment_method = Spree::PaymentMethod::StoreCredit.first
+        sorter = Spree::Config.store_credit_prioritizer_class.new(matching_store_credits, self)
 
-        matching_store_credits.order_by_priority.each do |credit|
+        sorter.call.each do |credit|
           break if remaining_total.zero?
           next if credit.amount_remaining.zero?
 
@@ -741,6 +750,27 @@ module Spree
       end
     end
 
+    # Finalizes an in progress order after checkout is complete.
+    # Called after transition to complete state when payments will have been processed
+    def finalize
+      # lock all adjustments (coupon promotions, etc.)
+      all_adjustments.each(&:finalize!)
+
+      # update payment and shipment(s) states, and save
+      updater.update_payment_state
+      shipments.each do |shipment|
+        shipment.update_state
+        shipment.finalize!
+      end
+
+      updater.update_shipment_state
+      save!
+
+      touch :completed_at
+
+      Spree::Bus.publish :order_finalized, order: self
+    end
+
     def associate_store
       self.store ||= Spree::Store.default
     end
@@ -750,15 +780,23 @@ module Spree
     end
 
     # Determine if email is required (we don't want validation errors before we hit the checkout)
-    def require_email
+    def email_required?
       true unless new_record? || ['cart', 'address'].include?(state)
+    end
+
+    def require_email
+      Spree::Deprecation.warn "Use email_required? instead", caller(1)
+      email_required?
     end
 
     def ensure_inventory_units
       if has_checkout_step?("delivery")
-        inventory_validator = Spree::Stock::InventoryValidator.new
+        inventory_validator = Spree::Config.stock.inventory_validator_class.new
 
-        errors = line_items.map { |line_item| inventory_validator.validate(line_item) }.compact
+        errors = line_items.map { |line_item|
+          inventory_validator.validate(line_item)
+        }.compact
+
         raise InsufficientStock if errors.any?
       end
     end
@@ -776,8 +814,15 @@ module Spree
     end
 
     def validate_line_item_availability
-      availability_validator = Spree::Stock::AvailabilityValidator.new
-      raise InsufficientStock unless line_items.all? { |line_item| availability_validator.validate(line_item) }
+      availability_validator = Spree::Config.stock.availability_validator_class.new
+
+      # NOTE: This code assumes that the availability validator will return
+      # true for success and false for failure. This is not normally the
+      # behaviour of validators, as the framework only cares about the
+      # population of the errors, not the return value of the validate method.
+      raise InsufficientStock unless line_items.all? { |line_item|
+        availability_validator.validate(line_item)
+      }
     end
 
     def ensure_line_items_present

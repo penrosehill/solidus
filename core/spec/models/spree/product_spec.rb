@@ -151,8 +151,7 @@ RSpec.describe Spree::Product, type: :model do
 
       context "with currency set to JPY" do
         before do
-          product.master.default_price.currency = 'JPY'
-          product.master.default_price.save!
+          product.master.default_price.update!(currency: 'JPY')
           stub_spree_preferences(currency: 'JPY')
         end
 
@@ -617,6 +616,59 @@ RSpec.describe Spree::Product, type: :model do
 
     it 'responds to #images' do
       expect(subject).to respond_to(:images)
+    end
+  end
+
+  describe '.sort_by_master_default_price_amount_asc' do
+    it 'returns first those which default price is lower' do
+      product_1 = create(:product, price: 10)
+      product_2 = create(:product, price: 5)
+
+      result = described_class.sort_by_master_default_price_amount_asc
+
+      expect(result).to eq([product_2, product_1])
+    end
+  end
+
+  describe '.sort_by_master_default_price_amount_desc' do
+    it 'returns first those which default price is higher' do
+      product_1 = create(:product, price: 10)
+      product_2 = create(:product, price: 5)
+
+      result = described_class.sort_by_master_default_price_amount_desc
+
+      expect(result).to eq([product_1, product_2])
+    end
+  end
+
+  describe "ransack scopes" do
+    context "available scope" do
+      subject { described_class.ransack(available: true).result }
+
+      let!(:available_product) { create(:product) }
+      let!(:not_available_product) { create(:product, available_on: Time.zone.tomorrow) }
+
+      it "is included" do
+        expect(subject).to match_array([available_product])
+      end
+    end
+  end
+
+  describe "inventory tracking" do
+    let(:product) { build(:product) }
+
+    describe "#track_inventory=" do
+      it "delegates to master variant" do
+        expect(product.master).to receive(:track_inventory=).with(true)
+        product.track_inventory = true
+      end
+    end
+
+    describe "#track_inventory" do
+      it "delegates to master variant" do
+        expect(product.master).to receive(:track_inventory) { true }
+        expect(product.track_inventory).to be(true)
+      end
     end
   end
 end

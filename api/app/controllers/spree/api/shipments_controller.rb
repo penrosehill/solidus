@@ -40,13 +40,31 @@ module Spree
 
       def create
         authorize! :create, Shipment
-        quantity = params[:quantity].to_i
+
         @shipment = @order.shipments.create(stock_location_id: params.fetch(:stock_location_id))
-        @order.contents.add(variant, quantity, { shipment: @shipment })
 
-        @shipment.save!
+        if passing_deprecated_params_on_create?
+          Spree::Deprecation.warn <<~MSG
+          Passing `quantity` or `variant_id` to
 
-        respond_with(@shipment.reload, default_template: :show)
+              POST /api/shipments
+
+          is deprecated and won't be allowed anymore starting from Solidus 4.0.
+          Instead, create an empty shipment and add items to it subsequently using
+          the dedicated endpoint:
+
+              PUT /api/shipments/{shipment_number}/add
+
+          MSG
+
+          quantity = params[:quantity].to_i
+          variant = Spree::Variant.unscoped.find(params[:variant_id])
+          @order.contents.add(variant, quantity, { shipment: @shipment })
+          @shipment.save!
+          @shipment.reload
+        end
+
+        respond_with(@shipment, default_template: :show)
       end
 
       def update
@@ -109,7 +127,8 @@ module Spree
           current_shipment: @original_shipment,
           desired_shipment: @desired_shipment,
           variant: @variant,
-          quantity: @quantity
+          quantity: @quantity,
+          track_inventory: Spree::Config.track_inventory_levels
         )
 
         if fulfilment_changer.run!
@@ -128,6 +147,10 @@ module Spree
         @quantity                  = params[:quantity].to_i
         authorize! [:update, :destroy], @original_shipment
         authorize! :create, Shipment
+      end
+
+      def passing_deprecated_params_on_create?
+        params[:variant_id] || params[:quantity]
       end
 
       def find_order_on_create
@@ -186,7 +209,7 @@ module Spree
             },
             variant: {
               product: {},
-              default_price: {},
+              prices: {},
               option_values: {
                 option_type: {}
               }

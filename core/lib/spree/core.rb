@@ -14,20 +14,20 @@ require 'awesome_nested_set'
 require 'cancan'
 require 'friendly_id'
 require 'kaminari/activerecord'
-require 'mail'
 require 'monetize'
 require 'paperclip'
 require 'ransack'
 require 'state_machines-activerecord'
 
 require 'spree/deprecation'
+require 'spree/rails_compatibility'
 
 # This is required because ActiveModel::Validations#invalid? conflicts with the
 # invalid state of a Payment. In the future this should be removed.
 StateMachines::Machine.ignore_method_conflicts = true
 
 module Spree
-  mattr_accessor :user_class
+  mattr_accessor :user_class, default: 'Spree::LegacyUser'
 
   def self.user_class
     if @@user_class.is_a?(Class)
@@ -35,6 +35,16 @@ module Spree
     elsif @@user_class.is_a?(String) || @@user_class.is_a?(Symbol)
       @@user_class.to_s.constantize
     end
+  end
+
+  # Load the same version defaults for all available Solidus components
+  #
+  # @see Spree::Preferences::Configuration#load_defaults
+  def self.load_defaults(version)
+    Spree::Config.load_defaults(version)
+    Spree::Frontend::Config.load_defaults(version) if defined?(Spree::Frontend::Config)
+    Spree::Backend::Config.load_defaults(version) if defined?(Spree::Backend::Config)
+    Spree::Api::Config.load_defaults(version) if defined?(Spree::Api::Config)
   end
 
   # Used to configure Spree.
@@ -52,6 +62,24 @@ module Spree
   end
 
   module Core
+    # @api private
+    def self.has_install_generator_been_run?(rails_paths: Rails.application.paths, initializer_name: 'spree.rb', dummy_app_name: 'DummyApp::Application')
+      does_spree_initializer_exist?(rails_paths, initializer_name) ||
+        running_solidus_test_suite_with_dummy_app?(dummy_app_name)
+    end
+
+    def self.running_solidus_test_suite_with_dummy_app?(dummy_app_name)
+      Rails.env.test? && Rails.application.class.name == dummy_app_name
+    end
+    private_class_method :running_solidus_test_suite_with_dummy_app?
+
+    def self.does_spree_initializer_exist?(rails_paths, initializer_name)
+      rails_paths['config/initializers'].any? do |path|
+        File.exist?(Pathname.new(path).join(initializer_name))
+      end
+    end
+    private_class_method :does_spree_initializer_exist?
+
     class GatewayError < RuntimeError; end
   end
 end
@@ -67,6 +95,7 @@ require 'spree/core/environment'
 require 'spree/migrations'
 require 'spree/migration_helpers'
 require 'spree/event'
+require 'spree/bus'
 require 'spree/core/engine'
 
 require 'spree/i18n'
@@ -79,7 +108,6 @@ require 'spree/core/permalinks'
 require 'spree/core/product_duplicator'
 require 'spree/core/controller_helpers/auth'
 require 'spree/core/controller_helpers/common'
-require 'spree/core/controller_helpers/current_host'
 require 'spree/core/controller_helpers/order'
 require 'spree/core/controller_helpers/payment_parameters'
 require 'spree/core/controller_helpers/pricing'

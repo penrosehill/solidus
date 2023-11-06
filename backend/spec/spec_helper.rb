@@ -2,6 +2,11 @@
 
 if ENV["COVERAGE"]
   require 'simplecov'
+  if ENV["COVERAGE_DIR"]
+    SimpleCov.coverage_dir(ENV["COVERAGE_DIR"])
+  end
+  SimpleCov.command_name('solidus:backend')
+  SimpleCov.merge_timeout(3600)
   SimpleCov.start('rails')
 end
 
@@ -25,13 +30,13 @@ require 'rspec/rails'
 Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].each { |f| require f }
 
 require 'database_cleaner'
-require 'with_model'
 
 require 'spree/testing_support/factory_bot'
 require 'spree/testing_support/partial_double_verification'
 require 'spree/testing_support/authorization_helpers'
 require 'spree/testing_support/preferences'
 require 'spree/testing_support/controller_requests'
+require 'spree/testing_support/flaky'
 require 'spree/testing_support/flash'
 require 'spree/testing_support/url_helpers'
 require 'spree/testing_support/order_walkthrough'
@@ -55,10 +60,19 @@ Capybara.register_driver :selenium_chrome_headless do |app|
   browser_options.args << '--window-size=1920,1080'
   Capybara::Selenium::Driver.new(app, browser: :chrome, options: browser_options)
 end
+Capybara.register_driver :selenium_chrome_headless_docker_friendly do |app|
+  browser_options = ::Selenium::WebDriver::Chrome::Options.new
+  browser_options.args << '--headless'
+  browser_options.args << '--disable-gpu'
+  # Sandbox cannot be used inside unprivileged Docker container
+  browser_options.args << '--no-sandbox'
+  browser_options.args << '--window-size=1240,1400'
+  Capybara::Selenium::Driver.new(app, browser: :chrome, options: browser_options)
+end
 
 Capybara.javascript_driver = (ENV['CAPYBARA_DRIVER'] || :selenium_chrome_headless).to_sym
 
-ActionView::Base.raise_on_missing_translations = true
+Spree::RailsCompatibility.raise_on_missing_translations(true)
 
 Capybara.default_max_wait_time = ENV['DEFAULT_MAX_WAIT_TIME'].to_f if ENV['DEFAULT_MAX_WAIT_TIME'].present?
 
@@ -102,8 +116,6 @@ RSpec.configure do |config|
   config.include Spree::TestingSupport::Translations
   config.include Spree::TestingSupport::JobHelpers
   config.include Spree::TestingSupport::BlacklistUrls
-
-  config.extend WithModel
 
   config.example_status_persistence_file_path = "./spec/examples.txt"
 

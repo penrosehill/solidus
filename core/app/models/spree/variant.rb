@@ -23,8 +23,6 @@ module Spree
     after_discard do
       stock_items.discard_all
       images.destroy_all
-      prices.discard_all
-      currently_valid_prices.discard_all
     end
 
     attr_writer :rebuild_vat_prices
@@ -32,11 +30,14 @@ module Spree
 
     belongs_to :product, -> { with_discarded }, touch: true, class_name: 'Spree::Product', inverse_of: :variants_including_master, optional: false
     belongs_to :tax_category, class_name: 'Spree::TaxCategory', optional: true
+    belongs_to :shipping_category, class_name: "Spree::ShippingCategory", optional: true
 
     delegate :name, :description, :slug, :available_on, :discontinue_on, :discontinued?,
-             :shipping_category_id, :meta_description, :meta_keywords, :shipping_category,
+             :meta_description, :meta_keywords,
              to: :product
     delegate :tax_category, to: :product, prefix: true
+    delegate :shipping_category, :shipping_category_id,
+      to: :product, prefix: true
     delegate :tax_rates, to: :tax_category
 
     has_many :inventory_units, inverse_of: :variant
@@ -53,13 +54,7 @@ module Spree
     has_many :images, -> { order(:position) }, as: :viewable, dependent: :destroy, class_name: "Spree::Image"
 
     has_many :prices,
-      class_name: 'Spree::Price',
-      dependent: :destroy,
-      inverse_of: :variant,
-      autosave: true
-
-    has_many :currently_valid_prices,
-      -> { currently_valid },
+      -> { with_discarded },
       class_name: 'Spree::Price',
       dependent: :destroy,
       inverse_of: :variant,
@@ -74,7 +69,7 @@ module Spree
 
     validates :cost_price, numericality: { greater_than_or_equal_to: 0, allow_nil: true }
     validates :price,      numericality: { greater_than_or_equal_to: 0, allow_nil: true }
-    validates_uniqueness_of :sku, allow_blank: true, case_sensitive: true, if: :enforce_unique_sku?
+    validates_uniqueness_of :sku, allow_blank: true, case_sensitive: true, conditions: -> { where(deleted_at: nil) }, if: :enforce_unique_sku?
 
     after_create :create_stock_items
     after_create :set_position
@@ -118,8 +113,8 @@ module Spree
       joins(:stock_items).where(arel_conditions.inject(:or)).distinct
     end
 
-    self.whitelisted_ransackable_associations = %w[option_values product prices default_price]
-    self.whitelisted_ransackable_attributes = %w[weight sku]
+    self.allowed_ransackable_associations = %w[option_values product prices default_price]
+    self.allowed_ransackable_attributes = %w[weight sku]
 
     # Returns variants that have a price for the given pricing options
     # If you have modified the pricing options class, you might want to modify this scope too.
@@ -148,6 +143,23 @@ module Spree
     #
     def tax_category
       super || product_tax_category
+    end
+
+    # @return [Spree::ShippingCategory] the variant's shipping category
+    #
+    # This returns the product's shipping category if the shipping category ID on the variant is nil. It looks
+    # like an association, but really is an override.
+    #
+    def shipping_category
+      super || product_shipping_category
+    end
+
+    # @return [Integer] the variant's shipping category id
+    #
+    # This returns the product's shipping category if if the shipping category ID on the variant is nil.
+    #
+    def shipping_category_id
+      super || product_shipping_category_id
     end
 
     # Sets the cost_price for the variant.
@@ -218,8 +230,8 @@ module Spree
 
     # Assign given options hash to option values.
     #
-    # @param options [Array] array of hashes with a name and value.
-    def options=(options = {})
+    # @param options [Array<Hash{name: String, value: String}>] array of hashes with a name and value.
+    def options=(options = [])
       options.each do |option|
         set_option_value(option[:name], option[:value])
       end
@@ -276,21 +288,33 @@ module Spree
     end
 
     # Chooses an appropriate price for the given pricing options
+    # This has been deprecated in favor of #price_for_options.
     #
-    # @see Spree::Variant::PriceSelector#price_for
+    # @see Spree::Variant::PriceSelector#price_for_options
     delegate :price_for, to: :price_selector
 
     # Returns the difference in price from the master variant
     def price_difference_from_master(pricing_options = Spree::Config.default_pricing_options)
-      master_price = product.master.price_for(pricing_options)
-      variant_price = price_for(pricing_options)
+      master_price = product.master.price_for_options(pricing_options)
+      variant_price = price_for_options(pricing_options)
       return unless master_price && variant_price
-      variant_price - master_price
+      Spree::Money.new(variant_price.amount - master_price.amount, currency: pricing_options.currency)
     end
 
     def price_same_as_master?(pricing_options = Spree::Config.default_pricing_options)
       diff = price_difference_from_master(pricing_options)
       diff && diff.zero?
+    end
+
+    def price_for_options(price_options)
+      if price_selector.respond_to?(:price_for_options)
+        price_selector.price_for_options(price_options)
+      else
+        money = price_for(price_options)
+        return if money.nil?
+
+        Spree::Price.new(amount: money.to_d, variant: self, currency: price_options.currency)
+      end
     end
 
     # Generates a friendly name and sku string.
@@ -315,16 +339,22 @@ module Spree
     end
 
     # @param quantity [Fixnum] how many are desired
+    # @param stock_location [Spree::StockLocation] Optionally restrict stock
+    #   quantity check to a specific stock location. If unspecified it will
+    #   check inventory in all available StockLocations.
     # @return [Boolean] true if the desired quantity can be supplied
-    def can_supply?(quantity = 1)
-      Spree::Stock::Quantifier.new(self).can_supply?(quantity)
+    def can_supply?(quantity = 1, stock_location = nil)
+      Spree::Stock::Quantifier.new(self, stock_location).can_supply?(quantity)
     end
 
     # Fetches the on-hand quantity of the variant.
     #
+    # @param stock_location [Spree::StockLocation] Optionally restrict stock
+    #   quantity check to a specific stock location. If unspecified it will
+    #   check inventory in all available StockLocations.
     # @return [Fixnum] the number currently on-hand
-    def total_on_hand
-      Spree::Stock::Quantifier.new(self).total_on_hand
+    def total_on_hand(stock_location = nil)
+      Spree::Stock::Quantifier.new(self, stock_location).total_on_hand
     end
 
     # Shortcut method to determine if inventory tracking is enabled for this

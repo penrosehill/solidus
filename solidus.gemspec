@@ -14,14 +14,17 @@ Gem::Specification.new do |s|
   s.homepage    = 'http://solidus.io'
   s.license     = 'BSD-3-Clause'
 
+  s.metadata['rubygems_mfa_required'] = 'true'
+
   s.files = Dir['README.md', 'lib/**/*']
 
-  s.required_ruby_version = '>= 2.5.0'
+  s.required_ruby_version = '>= 2.7.0'
   s.required_rubygems_version = '>= 1.8.23'
 
   s.add_dependency 'solidus_api', s.version
   s.add_dependency 'solidus_backend', s.version
   s.add_dependency 'solidus_core', s.version
-  s.add_dependency 'solidus_frontend', s.version
   s.add_dependency 'solidus_sample', s.version
+
+  s.add_dependency 'solidus_frontend', '~> 3.4.0.dev'
 end

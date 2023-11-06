@@ -3,6 +3,7 @@
 # Solidus
 
 [![Circle CI](https://circleci.com/gh/solidusio/solidus/tree/master.svg?style=shield)](https://circleci.com/gh/solidusio/solidus/tree/master)
+[![codecov](https://codecov.io/gh/solidusio/solidus/branch/master/graph/badge.svg)](https://codecov.io/gh/solidusio/solidus/branch/master)
 [![Gem](https://img.shields.io/gem/v/solidus.svg)](https://rubygems.org/gems/solidus)
 [![License](http://img.shields.io/badge/license-BSD-yellowgreen.svg)](LICENSE.md)
 [![Reviewed by Hound](https://img.shields.io/badge/Reviewed_by-Hound-8E64B0.svg)](https://houndci.com)
@@ -12,13 +13,13 @@
 [![Silver Partners on Open Collective](https://opencollective.com/solidus/tiers/silver/badge.svg?label=Silver&nbsp;Partners&color=brightgree)](https://opencollective.com/solidus)
 [![Gold Partners on Open Collective](https://opencollective.com/solidus/tiers/gold/badge.svg?label=Gold&nbsp;Partners&color=brightgree)](https://opencollective.com/solidus)
 [![Open Source Helpers](https://www.codetriage.com/solidusio/solidus/badges/users.svg)](https://www.codetriage.com/solidusio/solidus)
-[![Slack](http://slack.solidus.io/badge.svg)](http://slack.solidus.io)
+[![Slack](https://shields.io/badge/slack-start_chatting-blue?logo=slack)](http://slack.solidus.io)
 
 **A free, open-source ecommerce platform that gives you complete control over your store.**
 
 - **Visit our website**: [https://solidus.io/](https://solidus.io/)
 - **Read our Community Guidelines**: [https://solidus.io/community-guidelines/](https://solidus.io/community-guidelines/)
-- **Read our guides**: [https://guides.solidus.io/developers/](https://guides.solidus.io/developers/)
+- **Read our guides**: [https://guides.solidus.io/](https://guides.solidus.io/)
 - **Join our Slack**: [http://slack.solidus.io/](http://slack.solidus.io/)
 - **Solidus Security**: [mailing list](https://groups.google.com/forum/#!forum/solidus-security)
 
@@ -37,19 +38,17 @@
 As a community-driven project, Solidus relies on funds and time donated by developers and stakeholders who use Solidus for their businesses. If you'd like to help Solidus keep growing, please consider:
 
 - [Become a backer or sponsor on Open Collective](https://opencollective.com/solidus).
-- [Contribute to the project](https://github.com/solidusio/solidus/blob/master/CONTRIBUTING.md).
+- [Contribute to the project](https://github.com/solidusio/.github/blob/main/CONTRIBUTING.md).
 
 ### Main Contributor & Director
 At present, Nebulab is the main code contributor and director of Solidus, providing technical guidance and coordinating community efforts and activities.
 
-[![Nebulab](https://nebulab.it/assets/images/public/logo.svg)](https://nebulab.it/)
+[![Nebulab](https://raw.githubusercontent.com/solidusio/brand/master/partners/Nebulab/logo-dark-light.svg)](https://nebulab.com/)
 
 ### Ambassadors
 Support this project by becoming a Solidus Ambassador. Your logo will show up here with a link to your website. [Become an Ambassador](https://opencollective.com/solidus).
 
-[![Super Good Software](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fopencollective-production.s3-us-west-1.amazonaws.com%2F3bbb1440-727f-11e9-a366-37673cc38cee.png&height=100)](https://supergood.software/)
-[![Karma Creative](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fopencollective-production.s3-us-west-1.amazonaws.com%2Fab94d2a0-7253-11e9-a366-37673cc38cee.png&height=100)](https://karmacreative.io/)
-[![ModdedEuros](https://images.opencollective.com/proxy/images?src=https%3A%2F%2Fimages.opencollective.com%2Fmodded-euros%2Ff1a80ae%2Flogo.png&height=100)](https://www.moddedeuros.com)
+[![Super Good Software](https://raw.githubusercontent.com/solidusio/brand/master/partners/SuperGood/logo-dark-light.png)](https://supergood.software/)
 
 ---
 
@@ -63,13 +62,17 @@ Guides](https://guides.solidus.io) for information about the functionality that
 Solidus provides.
 
 Solidus consists of several gems. When you require the `solidus` gem in your
-`Gemfile`, Bundler will install all of the gems maintained in this repository:
+`Gemfile`, Bundler will install all of the following gems:
 
 - [`solidus_api`](https://github.com/solidusio/solidus/tree/master/api) (RESTful API)
-- [`solidus_frontend`](https://github.com/solidusio/solidus/tree/master/frontend) (Cart and storefront)
+- [`solidus_frontend`](https://github.com/solidusio/solidus_frontend) (Cart and storefront)
 - [`solidus_backend`](https://github.com/solidusio/solidus/tree/master/backend) (Admin area)
 - [`solidus_core`](https://github.com/solidusio/solidus/tree/master/core) (Essential models, mailers, and classes)
 - [`solidus_sample`](https://github.com/solidusio/solidus/tree/master/sample) (Sample data)
+
+While `solidus_frontend` is still present in the meta-gem, it'll be removed in
+Solidus v4.0. For new stores, we recommend using
+[solidus_starter_frontend](https://github.com/solidusio/solidus_starter_frontend).
 
 All of the gems are designed to work together to provide a fully functional
 ecommerce platform. However, you may only want to use the
@@ -80,22 +83,6 @@ combine it with your own custom frontend, admin interface, and API.
 
 You can try the live Solidus demo [here.](http://demo.solidus.io/) The admin section can be accessed [here.](http://demo.solidus.io/admin)
 
-You can also try out Solidus with one-click on Heroku:
-
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/solidusio/solidus-example-app)
-
-Additionally, you can use Docker to run a demo on your local machine. Run the
-following command to download the image and run it at
-[http://localhost:3000](http://localhost:3000).
-
-```
-docker run --rm -it -p 3000:3000 solidusio/solidus-demo:latest
-```
-
-The admin interface can be accessed at
-[http://localhost:3000/admin/](http://localhost:3000/admin/), the default
-credentials are `admin@example.com` and `test123`.
-
 ## Getting started
 
 Begin by making sure you have
@@ -103,51 +90,19 @@ Begin by making sure you have
 required for Paperclip. (You can install it using [Homebrew](https://brew.sh) if
 you're on a Mac.)
 
-To add solidus, begin with a Rails 5/6 application and a database configured and
-created.
+To add Solidus, begin with a Rails 5.2, 6 or 6.1 application and a database
+configured and created.
 
 ### Installing Solidus
 
-<details>
-  <summary>For Solidus v2.11 and above</summary>
+In your application's root folder run:
 
-  Add the following to your Gemfile.
+```bash
+bundle add solidus
+bin/rails g solidus:install
+```
 
-  ```ruby
-  gem 'solidus'
-  ```
-
-  Run the `bundle` command to install.
-
-  After installing gems, you'll have to run the generator to create necessary
-  configuration files and migrations.
-
-  ```bash
-  bin/rails g solidus:install
-  ```
-</details>
-
-<details>
-  <summary>For Solidus v2.10 and below</summary>
-
-  Add the following to your Gemfile. Skip the `solidus_auth_devise` part
-  if you want to use a custom authentication system.
-
-  ```ruby
-  gem 'solidus'
-  gem 'solidus_auth_devise'
-  ```
-
-  Run the `bundle` command to install.
-
-  After installing gems, you'll have to run the generator to create necessary
-  configuration files and migrations.
-
-  ```bash
-  bin/rails g spree:install
-  ```
-</details>
-
+And follow the prompt's instructions.
 ### Accessing Solidus Store
 
 Start the Rails server with the command:
@@ -156,8 +111,9 @@ Start the Rails server with the command:
 bin/rails s
 ```
 
-The [`solidus_frontend`](https://github.com/solidusio/solidus/tree/master/frontend) storefront will be accessible at [http://localhost:3000/](http://localhost:3000/)
-and the admin can be found at [http://localhost:3000/admin/](http://localhost:3000/admin/).
+The storefront will be accessible at
+[http://localhost:3000/](http://localhost:3000/) and the admin can be found at
+[http://localhost:3000/admin/](http://localhost:3000/admin/).
 
 For information on how to customize your store, check out the [customization guides](https://guides.solidus.io/developers/customizations/overview.html).
 
@@ -238,6 +194,8 @@ and/or customizations to the Solidus admin. Use at your own risk.
   cd solidus
   ```
 
+### Without Docker
+
 * Install the gem dependencies
 
   ```bash
@@ -255,6 +213,60 @@ and/or customizations to the Solidus admin. Use at your own risk.
   export DB=mysql
   bin/setup
   ```
+
+### With Docker
+
+```bash
+docker-compose up -d
+```
+
+Wait for all the gems to be installed (progress can be checked through `docker-compose logs -f app`).
+
+You can provide the ruby version you want your image to use:
+
+```bash
+docker-compose build --build-arg RUBY_VERSION=2.7 app
+docker-compose up -d
+```
+
+The rails version can be customized at runtime through `RAILS_VERSION` environment variable:
+
+```bash
+RAILS_VERSION='~> 5.0' docker-compose up -d
+```
+
+Running tests:
+
+```bash
+# sqlite
+docker-compose exec app bin/rspec
+# postgres
+docker-compose exec app env DB=postgres bin/rspec
+# mysql
+docker-compose exec app env DB=mysql bin/rspec
+```
+
+Accessing the databases:
+
+```bash
+# sqlite
+docker-compose exec app sqlite3 /path/to/db
+# postgres
+docker-compose exec app env PGPASSWORD=password psql -U root -h postgres
+# mysql
+docker-compose exec app mysql -u root -h mysql -ppassword
+```
+
+In order to be able to access the [sandbox application](#sandbox), just make
+sure to provide the appropriate `--binding` option to `rails server`. By
+default, port `3000` is exposed, but you can change it through `SANDBOX_PORT`
+environment variable:
+
+```bash
+SANDBOX_PORT=4000 docker-compose up -d
+docker-compose exec app bin/sandbox
+docker-compose exec app bin/rails server --binding 0.0.0.0 --port 4000
+```
 
 ### Sandbox
 
@@ -282,6 +294,11 @@ data already loaded.
   export DB=mysql
   bin/sandbox
   ```
+
+  Depending on your local environment, it may be necessary for you to set environment variables for your RDBMS, namely:
+    - `DB_HOST`
+    - `DB_USER`
+    - `DB_PASSWORD`
 
   If you need to create a Rails 5.2 application for your sandbox, for example
   if you are still using Ruby 2.4 which is not supported by Rails 6, you can
@@ -314,8 +331,8 @@ You can see the build statuses at
 
 #### Run all tests
 
-[ChromeDriver](https://sites.google.com/a/chromium.org/chromedriver/home) is
-required to run the frontend and backend test suites.
+[ChromeDriver](https://chromedriver.chromium.org/downloads) is required to run
+the backend test suites.
 
 To execute all of the test specs, run the `bin/build` script at the root of the Solidus project:
 
@@ -376,4 +393,4 @@ If you want to write an extension for Solidus, you can use the
 ## Contributing
 
 Solidus is an open source project and we encourage contributions. Please read
-[CONTRIBUTING.md](CONTRIBUTING.md) before contributing.
+[CONTRIBUTING.md](https://github.com/solidusio/.github/blob/main/CONTRIBUTING.md) before contributing.

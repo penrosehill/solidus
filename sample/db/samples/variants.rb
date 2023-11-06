@@ -14,7 +14,7 @@ solidus_mug = Spree::Product.find_by!(name: "Solidus Mug")
 ruby_mug = Spree::Product.find_by!(name: "Ruby Mug")
 solidus_tote = Spree::Product.find_by!(name: "Solidus Tote")
 ruby_tote = Spree::Product.find_by!(name: "Ruby Tote")
-solidus_girly = Spree::Product.find_by!(name: "Solidus Girly")
+solidus_womens_tshirt = Spree::Product.find_by!(name: "Solidus Women's T-Shirt")
 
 small = Spree::OptionValue.find_by!(name: "Small")
 medium = Spree::OptionValue.find_by!(name: "Medium")
@@ -123,40 +123,130 @@ variants = [
     cost_price: 17
   },
   {
-    product: solidus_girly,
+    product: solidus_womens_tshirt,
     option_values: [small, black],
     sku: "SOL-WM001",
     cost_price: 17
   },
   {
-    product: solidus_girly,
+    product: solidus_womens_tshirt,
     option_values: [small, blue],
     sku: "SOL-WM002",
     cost_price: 17
   },
   {
-    product: solidus_girly,
+    product: solidus_womens_tshirt,
     option_values: [small, white],
     sku: "SOL-WM003",
     cost_price: 17
   },
   {
-    product: solidus_girly,
+    product: solidus_womens_tshirt,
     option_values: [medium, blue],
     sku: "SOL-WM004",
     cost_price: 17
   },
   {
-    product: solidus_girly,
+    product: solidus_womens_tshirt,
     option_values: [medium, white],
     sku: "SOL-WM005",
     cost_price: 17
   },
   {
-    product: solidus_girly,
+    product: solidus_womens_tshirt,
     option_values: [medium, black],
     sku: "SOL-WM006",
     cost_price: 17
+  },
+  {
+    product: solidus_snapback_cap,
+    option_values: [small],
+    sku: "SOL-SNC02",
+    cost_price: 17
+  },
+  {
+    product: solidus_snapback_cap,
+    option_values: [medium],
+    sku: "SOL-SNC03",
+    cost_price: 17
+  },
+  {
+    product: solidus_snapback_cap,
+    option_values: [large],
+    sku: "SOL-SNC04",
+    cost_price: 17
+  },
+  {
+    product: solidus_hoodie,
+    option_values: [small],
+    sku: "SOL-HD02",
+    cost_price: 27
+  },
+  {
+    product: solidus_hoodie,
+    option_values: [medium],
+    sku: "SOL-HD03",
+    cost_price: 27
+  },
+  {
+    product: solidus_hoodie,
+    option_values: [large],
+    sku: "SOL-HD04",
+    cost_price: 27
+  },
+  {
+    product: ruby_hoodie,
+    option_values: [small],
+    sku: "RUB-HD02",
+    cost_price: 27
+  },
+  {
+    product: ruby_hoodie,
+    option_values: [medium],
+    sku: "RUB-HD03",
+    cost_price: 27
+  },
+  {
+    product: ruby_hoodie,
+    option_values: [large],
+    sku: "RUB-HD04",
+    cost_price: 27
+  },
+  {
+    product: ruby_hoodie_zip,
+    option_values: [small],
+    sku: "RUB-HD05",
+    cost_price: 27
+  },
+  {
+    product: ruby_hoodie_zip,
+    option_values: [medium],
+    sku: "RUB-HD06",
+    cost_price: 27
+  },
+  {
+    product: ruby_hoodie_zip,
+    option_values: [large],
+    sku: "RUB-HD07",
+    cost_price: 27
+  },
+  {
+    product: ruby_polo,
+    option_values: [small],
+    sku: "RUB-PL02",
+    cost_price: 23
+  },
+  {
+    product: ruby_polo,
+    option_values: [medium],
+    sku: "RUB-PL03",
+    cost_price: 23
+  },
+  {
+    product: ruby_polo,
+    option_values: [large],
+    sku: "RUB-PL04",
+    cost_price: 23
   }
 ]
 
@@ -205,7 +295,7 @@ masters = {
     sku: "RUB-MG01",
     cost_price: 7
   },
-  solidus_girly => {
+  solidus_womens_tshirt => {
     sku: "SOL-WM00",
     cost_price: 17
   }

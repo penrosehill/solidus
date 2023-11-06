@@ -12,8 +12,14 @@ Spree::Core::Engine.routes.draw do
 
     resources :products do
       resources :images
+      # TODO: Use shallow option on Solidus v4.0
       resources :variants
       resources :product_properties
+    end
+
+    # TODO: Use only: :index on Solidus v4.0
+    resources :variants do
+      resources :images
     end
 
     concern :order_routes do
@@ -47,13 +53,12 @@ Spree::Core::Engine.routes.draw do
       end
     end
 
-    resources :variants do
-      resources :images
-    end
-
     resources :option_types do
+      # TODO: Use shallow option on Solidus v4.0
       resources :option_values
     end
+    # TODO: Use only: :index on Solidus v4.0 and use shallow option on the nested routes
+    # within option_types
     resources :option_values
 
     get '/orders/mine', to: 'orders#mine', as: 'my_orders'

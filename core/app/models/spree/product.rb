@@ -61,6 +61,17 @@ module Spree
     has_many :line_items, through: :variants_including_master
     has_many :orders, through: :line_items
 
+    scope :sort_by_master_default_price_amount_asc, -> {
+      with_default_price.order('spree_prices.amount ASC')
+    }
+    scope :sort_by_master_default_price_amount_desc, -> {
+      with_default_price.order('spree_prices.amount DESC')
+    }
+    scope :with_default_price, -> {
+      left_joins(master: :prices)
+        .where(master: { spree_prices: Spree::Config.default_pricing_options.desired_attributes })
+    }
+
     def find_or_build_master
       master || build_master
     end
@@ -72,6 +83,7 @@ module Spree
       :height,
       :price,
       :sku,
+      :track_inventory,
       :weight,
       :width,
     ]
@@ -85,6 +97,7 @@ module Spree
              :has_default_price?,
              :images,
              :price_for,
+             :price_for_options,
              :rebuild_vat_prices=,
              to: :find_or_build_master
 
@@ -119,12 +132,9 @@ module Spree
 
     alias :options :product_option_types
 
-    self.whitelisted_ransackable_associations = %w[stores variants_including_master master variants]
-    self.whitelisted_ransackable_attributes = %w[name slug]
-
-    def self.ransackable_scopes(_auth_object = nil)
-      %i(with_discarded with_variant_sku_cont)
-    end
+    self.allowed_ransackable_associations = %w[stores variants_including_master master variants]
+    self.allowed_ransackable_attributes = %w[name slug]
+    self.allowed_ransackable_scopes = %i[available with_discarded with_variant_sku_cont with_all_variant_sku_cont with_kept_variant_sku_cont]
 
     # @return [Boolean] true if there are any variants
     def has_variants?

@@ -59,6 +59,33 @@ describe Spree::Admin::UsersController, type: :controller do
         expect(assigns(:collection)).to eq [user]
       end
     end
+
+    context "when Spree.user_class have a different namespace than Spree" do
+      class UserModel < ApplicationRecord
+        self.table_name = 'spree_users'
+        include Spree::UserMethods
+      end
+
+      around do |example|
+        actual_user_class = Spree.user_class
+        Spree.user_class = 'UserModel'
+        UserModel.create(email: "a@solidus.io")
+        example.run
+        Spree.user_class = actual_user_class.name
+      end
+
+      render_views
+
+      it "renders the edit and delete links correctly" do
+        allow(Spree.user_class).to receive(:find_by).
+            with(hash_including(:spree_api_key)).
+            and_return(Spree.user_class.new)
+
+        get :index
+
+        expect(response).to be_successful
+      end
+    end
   end
 
   context "#show" do
@@ -333,6 +360,14 @@ describe Spree::Admin::UsersController, type: :controller do
         role2 = Spree::Role.create(name: "not_accessible_role")
         put :update, params: { id: user.id, user: { spree_role_ids: [role1.id, role2.id] } }
         expect(user.reload.spree_roles).to eq([role1])
+      end
+
+      it "can't remove non accessible roles when assigning accessible ones" do
+        role1 = Spree::Role.create(name: "accessible_role")
+        role2 = Spree::Role.create(name: "not_accessible_role")
+        user.spree_roles << role2
+        put :update, params: { id: user.id, user: { spree_role_ids: [role1.id] } }
+        expect(user.reload.spree_roles).to match_array([role1, role2])
       end
     end
 

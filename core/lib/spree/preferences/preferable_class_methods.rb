@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'spree/deprecation'
 require 'spree/encryptor'
 
 module Spree::Preferences
@@ -26,8 +27,38 @@ module Spree::Preferences
         options[:default] = preference_encryptor.encrypt(options[:default])
       end
 
-      default = options[:default]
-      default = ->{ options[:default] } unless default.is_a?(Proc)
+      default = begin
+                  given = options[:default]
+                  if ancestors.include?(Spree::Preferences::Configuration) &&
+                     given.is_a?(Proc) &&
+                     given.lambda? &&
+                     given.arity.zero?
+                    Spree::Deprecation.warn <<~MSG
+                      The arity of a proc given as the default for a preference
+                      has changed from 0 to 1 on Solidus 3.1. The Solidus
+                      version for the loaded preference defaults is given as the
+                      proc's argument from this point on.
+
+                      If you don't need to return a different default value
+                      depending on the loaded Solidus version, you can change
+                      the proc so that it doesn't have lambda semantics (lambdas
+                      raise when extra arguments are supplied, while raw procs
+                      don't). E.g.:
+
+                      preference :foo, :string, default: proc { true }
+
+                      If you want to branch on the provided Solidus version, you can do like the following:
+
+                      versioned_preference :foo, :string, initial_value: true, boundaries: { "3.2.0" => false }
+
+                    MSG
+                    ->(_default_context) { given.call }
+                  elsif given.is_a?(Proc)
+                    given
+                  else
+                    proc { given }
+                  end
+                end
 
       # The defined preferences on a class are all those defined directly on
       # that class as well as those defined on ancestors.
@@ -44,7 +75,7 @@ module Spree::Preferences
       # is a pending preference before going to default
       define_method preference_getter_method(name) do
         value = preferences.fetch(name) do
-          default.call
+          instance_exec(*context_for_default, &default)
         end
         value = preference_encryptor.decrypt(value) if preference_encryptor.present?
         value
@@ -60,7 +91,9 @@ module Spree::Preferences
         preferences_will_change! if respond_to?(:preferences_will_change!)
       end
 
-      define_method preference_default_getter_method(name), &default
+      define_method preference_default_getter_method(name) do
+        instance_exec(*context_for_default, &default)
+      end
 
       define_method preference_type_getter_method(name) do
         type

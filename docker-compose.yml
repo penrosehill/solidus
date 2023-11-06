@@ -22,25 +22,25 @@ services:
       context: .dockerdev
       dockerfile: Dockerfile
       args:
-        RUBY_VERSION: "2.7.2"
+        RUBY_VERSION: "3.1"
         PG_VERSION: 13
         NODE_VERSION: 14
         MYSQL_VERSION: "8.0"
         BUNDLER_VERSION: 2
-    image: solidus-3.0
-    command: bash -c "(bundle check || bundle) && tail -f /dev/null"
+    image: solidus-3.4.0
+    command: bash -c "(bundle check || bundle) && bash -c 'echo Container initialized, see README.md for further steps.' && tail -f /dev/null"
     environment:
       CAPYBARA_DRIVER: selenium_chrome_headless_docker_friendly
       DB_USERNAME: root
       DB_PASSWORD: password
-      RAILS_VERSION: ${RAILS_VERSION:-~> 6.1.0}
+      RAILS_VERSION: ${RAILS_VERSION:-~> 7.0.2}
       DB_ALL: "1"
       DB_MYSQL_HOST: mysql
       DB_POSTGRES_HOST: postgres
       HISTFILE: "/home/solidus_user/history/bash_history"
       MYSQL_HISTFILE: "/home/solidus_user/history/mysql_history"
       RAILS_ENV: development
-      ACTIVE_STORAGE_VARIANT_PROCESSOR: "mini_magick"
+      ACTIVE_STORAGE_VARIANT_PROCESSOR: "vips"
     ports:
       - "${SANDBOX_PORT:-3000}:${SANDBOX_PORT:-3000}"
     volumes:

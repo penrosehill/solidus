@@ -32,6 +32,10 @@ RSpec.describe Spree::AppConfiguration do
     expect(prefs.variant_price_selector_class).to eq Spree::Variant::PriceSelector
   end
 
+  it "uses order adjustments recalculator class by default" do
+    expect(prefs.promotion_adjuster_class).to eq Spree::Promotion::OrderAdjustmentsRecalculator
+  end
+
   it "has a getter for the pricing options class provided by the variant price selector class" do
     expect(prefs.pricing_options_class).to eq Spree::Variant::PriceSelector.pricing_options_class
   end
@@ -128,6 +132,26 @@ RSpec.describe Spree::AppConfiguration do
     end
   end
 
+  describe "#migration_path" do
+    subject { config_instance.migration_path }
+
+    let(:config_instance) { described_class.new }
+
+    it "has a default value" do
+      expect(subject.to_s).to end_with "db/migrate"
+    end
+
+    context "with a custom value" do
+      before do
+        config_instance.migration_path = "db/secondary_database"
+      end
+
+      it "returns the configured value" do
+        expect(subject).to eq "db/secondary_database"
+      end
+    end
+  end
+
   it 'has a default admin VAT location with nil values by default' do
     expect(prefs.admin_vat_location).to eq(Spree::Tax::TaxLocation.new)
     expect(prefs.admin_vat_location.state_id).to eq(nil)
@@ -136,5 +160,53 @@ RSpec.describe Spree::AppConfiguration do
 
   it 'has default Event adapter' do
     expect(prefs.events.adapter).to eq Spree::Event::Adapters::ActiveSupportNotifications
+  end
+
+  context 'mails_from' do
+    it 'is deprecated' do
+      expect(Spree::Deprecation).to receive(:warn).with(/Solidus doesn't use `Spree::Config.mails_from`/)
+
+      prefs.mails_from=('solidus@example.com')
+    end
+
+    it "still sets the value so that consumers aren't broken" do
+      Spree::Deprecation.silence do
+        prefs.mails_from=('solidus@example.com')
+      end
+
+      expect(prefs.mails_from).to eq('solidus@example.com')
+    end
+  end
+
+  context 'extra_taxon_validations=' do
+    it 'is deprecated' do
+      expect(Spree::Deprecation).to receive(:warn).with(/Solidus will remove `Spree::Config.extra_taxon_validations`/)
+
+      prefs.extra_taxon_validations=(false)
+    end
+
+    it "still sets the value so that consumers aren't broken" do
+      Spree::Deprecation.silence do
+        prefs.extra_taxon_validations=(false)
+      end
+
+      expect(prefs.extra_taxon_validations).to eq(false)
+    end
+  end
+
+  context 'extra_taxonomy_validations=' do
+    it 'is deprecated' do
+      expect(Spree::Deprecation).to receive(:warn).with(/Solidus will remove `Spree::Config.extra_taxonomy_validations`/)
+
+      prefs.extra_taxonomy_validations=(false)
+    end
+
+    it "still sets the value so that consumers aren't broken" do
+      Spree::Deprecation.silence do
+        prefs.extra_taxonomy_validations=(false)
+      end
+
+      expect(prefs.extra_taxonomy_validations).to eq(false)
+    end
   end
 end

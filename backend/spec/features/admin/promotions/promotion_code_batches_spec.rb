@@ -9,8 +9,7 @@ feature "Promotion Code Batches", partial_double_verification: false do
     let(:promotion) { create :promotion }
 
     before do
-      user = double.as_null_object
-      allow_any_instance_of(ActionView::Base).to receive(:spree_current_user) { user }
+      allow_any_instance_of(ApplicationController).to receive(:spree_current_user) { build(:user, id: 123) }
       visit spree.new_admin_promotion_promotion_code_batch_path(promotion)
     end
 
@@ -18,6 +17,10 @@ feature "Promotion Code Batches", partial_double_verification: false do
       fill_in "Base code", with: "base"
       fill_in "Number of codes", with: 3
       click_button "Create"
+    end
+
+    it "renders partial without 'Per code usage limit' " do
+      expect(page).to_not have_field("promotion_per_code_usage_limit")
     end
 
     it "creates a new promotion code batch and disables the submit button", :js do

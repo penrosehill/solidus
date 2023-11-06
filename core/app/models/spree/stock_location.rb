@@ -26,12 +26,12 @@ module Spree
     validates_uniqueness_of :code, allow_blank: true, case_sensitive: false
 
     scope :active, -> { where(active: true) }
-    scope :order_default, -> { order(default: :desc, name: :asc) }
+    scope :order_default, -> { order(default: :desc, position: :asc) }
 
     after_create :create_stock_items, if: :propagate_all_variants?
     after_save :ensure_one_default
 
-    self.whitelisted_ransackable_attributes = %w[name]
+    self.allowed_ransackable_attributes = %w[name]
 
     def state_text
       state.try(:abbr) || state.try(:name) || state_name

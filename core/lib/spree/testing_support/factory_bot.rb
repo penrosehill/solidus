@@ -37,14 +37,14 @@ module Spree
         Spree::Deprecation.warn(
           "Please do not cherry-pick factories, this is not well supported by FactoryBot, " \
           'follow the changelog instructions on how to migrate your current setup.',
-          callsites[index..-1]
+          callsites[index..]
         )
       end
 
       def self.check_version
         require "factory_bot/version"
 
-        requirement = Gem::Requirement.new("~> 4.8")
+        requirement = Gem::Requirement.new(">= 4.8")
         version = Gem::Version.new(::FactoryBot::VERSION)
 
         unless requirement.satisfied_by? version
@@ -54,6 +54,7 @@ module Spree
           )
         end
       end
+      deprecate :check_version, deprecator: Spree::Deprecation
 
       def self.add_definitions!
         ::FactoryBot.definition_file_paths.unshift(*definition_file_paths).uniq!

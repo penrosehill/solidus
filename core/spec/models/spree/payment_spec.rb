@@ -46,14 +46,29 @@ RSpec.describe Spree::Payment, type: :model do
     )
   end
 
-  context '.risky' do
+  context 'risk analysis' do
     let!(:payment_1) { create(:payment, avs_response: 'Y', cvv_response_code: 'M', cvv_response_message: 'Match') }
     let!(:payment_2) { create(:payment, avs_response: 'Y', cvv_response_code: 'M', cvv_response_message: '') }
     let!(:payment_3) { create(:payment, avs_response: 'A', cvv_response_code: 'M', cvv_response_message: 'Match') }
     let!(:payment_4) { create(:payment, avs_response: 'Y', cvv_response_code: 'N', cvv_response_message: 'No Match') }
+    let!(:payment_5) { create(:payment, avs_response: 'Y', cvv_response_code: 'M', cvv_response_message: '', state: 'failed') }
 
-    it 'should not return successful responses' do
-      expect(subject.class.risky.to_a).to match_array([payment_3, payment_4])
+    describe '.risky' do
+      it 'fetches only risky payments' do
+        expect(subject.class.risky.to_a).to match_array([payment_3, payment_4, payment_5])
+      end
+    end
+
+    context '#risky?' do
+      it 'is true for risky payments' do
+        aggregate_failures do
+          expect(payment_1).not_to be_risky
+          expect(payment_2).not_to be_risky
+          expect(payment_3).to be_risky
+          expect(payment_4).to be_risky
+          expect(payment_5).to be_risky
+        end
+      end
     end
   end
 
@@ -503,8 +518,7 @@ RSpec.describe Spree::Payment, type: :model do
         it "should do nothing" do
           expect(payment).not_to receive(:complete)
           expect(payment.payment_method).not_to receive(:capture)
-          expect(payment.log_entries).not_to receive(:create!)
-          subject
+          expect{ subject }.not_to change(payment.log_entries, :count)
         end
       end
     end
@@ -657,10 +671,17 @@ RSpec.describe Spree::Payment, type: :model do
     # Regression test for https://github.com/spree/spree/issues/4403 and https://github.com/spree/spree/issues/4407
     it "is the difference between offsets total and payment amount" do
       payment.amount = 100
-      allow(payment).to receive(:offsets_total).and_return(0)
       expect(payment.credit_allowed).to eq(100)
-      allow(payment).to receive(:offsets_total).and_return(-80)
+      create(:payment, amount: -80, source: payment, source_type: 'Spree::Payment', state: 'completed', payment_method: create(:check_payment_method))
       expect(payment.credit_allowed).to eq(20)
+    end
+
+    it "is the difference between refunds total and payment amount" do
+      payment.amount = 100
+
+      expect {
+        create(:refund, payment: payment, amount: 80)
+      }.to change { payment.credit_allowed }.from(100).to(20)
     end
   end
 
@@ -1207,7 +1228,7 @@ RSpec.describe Spree::Payment, type: :model do
     end
   end
 
-  describe "is_avs_risky?" do
+  describe "#is_avs_risky?" do
     it "returns false if avs_response included in NON_RISKY_AVS_CODES" do
       ('A'..'Z').reject{ |x| subject.class::RISKY_AVS_CODES.include?(x) }.to_a.each do |char|
         payment.update_attribute(:avs_response, char)
@@ -1231,26 +1252,17 @@ RSpec.describe Spree::Payment, type: :model do
     end
   end
 
-  describe "is_cvv_risky?" do
-    it "returns false if cvv_response_code == 'M'" do
-      payment.update_attribute(:cvv_response_code, "M")
-      expect(payment.is_cvv_risky?).to eq(false)
+  describe "#is_cvv_risky?" do
+    ['M', nil].each do |char|
+      it "returns false if cvv_response_code is #{char.inspect}" do
+        payment.cvv_response_code = char
+        expect(payment.is_cvv_risky?).to eq(false)
+      end
     end
 
-    it "returns false if cvv_response_code == nil" do
-      payment.update_attribute(:cvv_response_code, nil)
-      expect(payment.is_cvv_risky?).to eq(false)
-    end
-
-    it "returns false if cvv_response_message == ''" do
-      payment.update_attribute(:cvv_response_message, '')
-      expect(payment.is_cvv_risky?).to eq(false)
-    end
-
-    it "returns true if cvv_response_code == [A-Z], omitting D" do
-      # should use cvv_response_code helper
-      (%w{N P S U} << "").each do |char|
-        payment.update_attribute(:cvv_response_code, char)
+    ['', *('A'...'M'), *('N'..'Z')].each do |char|
+      it "returns true if cvv_response_code is #{char.inspect} (not 'M' or nil)" do
+        payment.cvv_response_code = char
         expect(payment.is_cvv_risky?).to eq(true)
       end
     end
@@ -1325,6 +1337,20 @@ RSpec.describe Spree::Payment, type: :model do
 
     it 'does not include void, failed and invalid payments' do
       expect(described_class.valid).to be_empty
+    end
+  end
+
+  describe '::offset_payment' do
+    it 'is deprecated' do
+      expect(Spree::Deprecation).to receive(:warn).with(/offsets` are deprecated/)
+
+      described_class.offset_payment
+    end
+
+    it 'still calls the original method' do
+      Spree::Deprecation.silence do
+        expect(described_class.offset_payment.class.name).to eq('ActiveRecord::Relation')
+      end
     end
   end
 end

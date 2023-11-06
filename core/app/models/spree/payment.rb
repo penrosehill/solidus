@@ -46,7 +46,18 @@ module Spree
     scope :from_credit_card, -> { where(source_type: 'Spree::CreditCard') }
     scope :with_state, ->(state) { where(state: state.to_s) }
     # "offset" is reserved by activerecord
-    scope :offset_payment, -> { where("source_type = 'Spree::Payment' AND amount < 0 AND state = 'completed'") }
+    # TODO: When removing the method we can also:
+    #   - Remove the `.offsets` association
+    #   - Remove the `#offsets_total` method
+    #   - Remove offsets count from the `#credit_allowed` method
+    #   - Remove offsets check from `Spree::Order#has_non_reimbursement_related_refunds?
+    def self.offset_payment
+      Spree::Deprecation.warn <<~MSG
+        `Spree::Payment offsets` are deprecated. Use the refund system (`Spree::Refund`) instead.
+      MSG
+
+      where("source_type = 'Spree::Payment' AND amount < 0 AND state = 'completed'")
+    end
 
     scope :checkout, -> { with_state('checkout') }
     scope :completed, -> { with_state('completed') }
@@ -54,7 +65,7 @@ module Spree
     scope :processing, -> { with_state('processing') }
     scope :failed, -> { with_state('failed') }
 
-    scope :risky, -> { where("avs_response IN (?) OR (cvv_response_code IS NOT NULL and cvv_response_code != 'M') OR state = 'failed'", RISKY_AVS_CODES) }
+    scope :risky, -> { failed.or(where(avs_response: RISKY_AVS_CODES)).or(where.not(cvv_response_code: [nil, '', 'M'])) }
     scope :valid, -> { where.not(state: %w(failed invalid void)) }
 
     scope :store_credits, -> { where(source_type: Spree::StoreCredit.to_s) }
@@ -101,7 +112,10 @@ module Spree
     # @return [BigDecimal] the amount of this payment minus the offsets
     #   (old-style refunds) and refunds
     def credit_allowed
-      amount - (offsets_total.abs + refunds.sum(:amount))
+      amount - (
+        (self.class.where("source_type = 'Spree::Payment' AND amount < 0 AND state = 'completed' AND source_id = ?", id).sum(:amount)).abs +
+        refunds.sum(:amount)
+      )
     end
 
     # @return [Boolean] true when this payment can be credited
@@ -127,6 +141,11 @@ module Spree
       res || payment_method
     end
 
+    # @return [Boolean] true when this payment is risky
+    def risky?
+      is_avs_risky? || is_cvv_risky? || state == 'failed'
+    end
+
     # @return [Boolean] true when this payment is risky based on address
     def is_avs_risky?
       return false if avs_response.blank? || NON_RISKY_AVS_CODES.include?(avs_response)
@@ -137,7 +156,6 @@ module Spree
     def is_cvv_risky?
       return false if cvv_response_code == "M"
       return false if cvv_response_code.nil?
-      return false if cvv_response_message.present?
       true
     end
 
